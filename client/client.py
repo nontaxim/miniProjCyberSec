@@ -1,6 +1,7 @@
 import socket
 import json
 import os
+import time
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import serialization
@@ -139,6 +140,7 @@ def login_client(client_socket, username, private_key):
     :return: True if login is successful, False otherwise.
     """
     client_socket.send("login".encode())
+    time.sleep(1)
     client_socket.send(username.encode())
     
     challenge = client_socket.recv(1024).decode()
