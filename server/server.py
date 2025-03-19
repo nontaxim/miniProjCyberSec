@@ -1,6 +1,7 @@
 import socket
 import json
 import pyotp
+import base64
 import smtplib
 from email.mime.text import MIMEText
 from cryptography.hazmat.primitives import hashes
@@ -41,6 +42,15 @@ def generate_challenge(username):
     challenges[username] = (challenge, timestamp)  # Save challenge for validation
     return challenge
 
+def validate_secret_key(secret_key):
+    try:
+        # Decode the Base32 key to ensure it's valid
+        base64.b32decode(secret_key, casefold=True)
+        return True
+    except Exception as e:
+        print(f"Invalid secret key: {e}")
+        return False
+    
 def send_otp_email(email, otp, client_socket):
     """
         Send an OTP to the user's email address.
@@ -274,6 +284,16 @@ def start_server():
         
         This function will handle each client in a separate thread.
     """
+    global secret_key
+    if not secret_key:
+        print("OTP_SECRET_KEY not found in .env. Generating a new one...")
+        secret_key = pyotp.random_base32()
+        print(f"Generated OTP_SECRET_KEY🔑 successfully")
+        
+    # Validate the secret key
+    if not validate_secret_key(secret_key):
+        raise ValueError("Invalid OTP_SECRET_KEY. Please check your .env file or regenerate the key.")
+    
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.bind(('0.0.0.0', 5555))
     server.listen(5)
