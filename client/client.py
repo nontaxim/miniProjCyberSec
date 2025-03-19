@@ -2,6 +2,8 @@ import socket
 import json
 import os
 import time
+import getpass
+import re
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import serialization
@@ -87,6 +89,30 @@ def signed_message(private_key, message):
     )
     return signature.hex()
 
+def validate_password(password):
+    """
+    Validate the password based on specific criteria.
+    
+    :param password: The password to validate.
+    :return: True if the password meets the criteria, False otherwise.
+    """
+    if len(password) < 8:
+        print("Password must be at least 8 characters long.")
+        return False
+    if not any(char.isdigit() for char in password):
+        print("Password must contain at least one number.")
+        return False
+    if not any(char.isupper() for char in password):
+        print("Password must contain at least one uppercase letter.")
+        return False
+    if not any(char.islower() for char in password):
+        print("Password must contain at least one lowercase letter.")
+        return False
+    if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
+        print("Password must contain at least one special character (!@#$%^&*(),.?\":{}|<>).")
+        return False
+    return True
+
 def register_client(client_socket, username):
     """
     Register a new client by generating keys and sending the public key to the server.
@@ -102,8 +128,7 @@ def register_client(client_socket, username):
     ).decode('utf-8')
     
     email = input("Enter your email: ")
-    # TODO: make input invisible from screen
-    password = input("Enter your password: ")
+    password = getpass.getpass("Enter your password: ")
     
     client_socket.send("register".encode())
     registration_data = {'username': username, 'public_key': public_key_pem, "email": email, "password": password}
@@ -147,10 +172,9 @@ def login_client(client_socket, username, private_key):
     signed_challenge = signed_message(private_key, challenge)
     client_socket.send(signed_challenge.encode())
     
-    # TODO: make input invisible from screen
     # TODO: display minimum requirement for password like minimum character, special character, number etc
     #       if password is not secure enough ask user to change password
-    password = input("Enter your password: ")
+    password = getpass.getpass("Enter your password: ")
     client_socket.send(password.encode())
     response = client_socket.recv(1024).decode()
     print(f"Server response: {response}")
