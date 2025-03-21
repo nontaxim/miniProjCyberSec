@@ -1,15 +1,14 @@
 import pytest
 import json
 from pytest_mock import MockerFixture
-from unittest.mock import MagicMock
 from my_server import handle_registration, client_otp, clients
 from typing import Generator
 
 # Fixture to mock socket for client communication with valid OTP
 @pytest.fixture
-def mock_socket_valid_otp(mocker: MockerFixture) -> MagicMock:
+def mock_socket_valid_otp(mocker: MockerFixture) -> None:
     """Mock socket for client communication with valid OTP."""
-    mock = mocker.MagicMock()
+    mock = mocker.Mock()
     mock.recv.side_effect = [
         json.dumps({
             "username": "test_user",
@@ -23,9 +22,9 @@ def mock_socket_valid_otp(mocker: MockerFixture) -> MagicMock:
 
 # Fixture to mock socket for client communication with invalid OTP
 @pytest.fixture
-def mock_socket_invalid_otp(mocker: MockerFixture) -> MagicMock:
+def mock_socket_invalid_otp(mocker: MockerFixture) -> None:
     """Mock socket for client communication with invalid OTP."""
-    mock = mocker.MagicMock()
+    mock = mocker.Mock()
     mock.recv.side_effect = [
         json.dumps({
             "username": "test_user",
@@ -45,9 +44,9 @@ def mock_generate_otp(mocker: MockerFixture) -> None:
 
 # Fixture to mock the send_otp_email function
 @pytest.fixture
-def mock_send_email(mocker: MockerFixture) -> MagicMock:
+def mock_send_email(mocker: MockerFixture) -> None:
     """Mock the send_otp_email function."""
-    mock = mocker.MagicMock()
+    mock = mocker.Mock()
     mocker.patch("my_server.send_otp_email", mock)
     return mock
 
@@ -66,8 +65,8 @@ def clear_clients() -> Generator[None, None, None]:
     clients.clear()
 
 # Test valid OTP registration
-def test_handle_registration_valid_otp(mock_socket_valid_otp: MagicMock, mock_generate_otp: None, 
-                                        mock_send_email: MagicMock, setup_otp: None, 
+def test_handle_registration_valid_otp(mock_socket_valid_otp: None, mock_generate_otp: None, 
+                                        mock_send_email: None, setup_otp: None, 
                                         clear_clients: None) -> None:
     """Test user registration with valid OTP."""
     
@@ -80,8 +79,8 @@ def test_handle_registration_valid_otp(mock_socket_valid_otp: MagicMock, mock_ge
     assert "test_user" in clients  # Check if user was registered
 
 # Test invalid OTP registration
-def test_handle_registration_invalid_otp(mock_socket_invalid_otp: MagicMock, mock_generate_otp: None, 
-                                          mock_send_email: MagicMock, setup_otp: None, 
+def test_handle_registration_invalid_otp(mock_socket_invalid_otp: None, mock_generate_otp: None, 
+                                          mock_send_email: None, setup_otp: None, 
                                           clear_clients: None) -> None:
     """Test user registration with invalid OTP."""
     

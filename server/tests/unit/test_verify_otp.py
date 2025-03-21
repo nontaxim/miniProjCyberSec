@@ -1,5 +1,5 @@
 import pytest
-import my_server as my_server
+import my_server
 
 @pytest.fixture
 def setup_otp() -> None:

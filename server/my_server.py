@@ -165,7 +165,6 @@ def handle_login(client_socket):
 
     # Wait for the signed challenge message from the client
     signed_challenge = client_socket.recv(1024).decode()
-
     if username in clients:
         public_key = serialization.load_pem_public_key(clients[username]["public_key"].encode(), backend=default_backend())
         try:
@@ -175,12 +174,15 @@ def handle_login(client_socket):
                 padding.PKCS1v15(),
                 hashes.SHA256()
             )
+            client_socket.send("valid signature!".encode())
         except Exception as e:
             client_socket.send("Invalid signature!".encode())
-            client_socket.close()
+            client_socket.close()  # close the connection after sending the error
+            return
     else:
         client_socket.send("Client not registered!".encode())
-        client_socket.close()
+        client_socket.close()  # close the connection after sending the error
+        return
 
     print(f"pass challenge for {username}")
 
@@ -193,8 +195,11 @@ def handle_login(client_socket):
 
     if clients[username]['password'] != password:
         client_socket.send("Invalid password!".encode())
-        client_socket.close()
-    client_socket.send("Login successful!".encode())
+        client_socket.close()  # close the connection after sending the error
+        return  # Ensure no further code is executed after this point
+
+    client_socket.send("Login successful!".encode())  # Send success message if all checks pass
+
 
 def get_public_key(username):
     """
