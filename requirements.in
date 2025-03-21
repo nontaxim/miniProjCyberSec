@@ -2,3 +2,7 @@ pip-tools
 cryptography
 pyotp
 dotenv
+pytest
+pytest-mock
+pytest-cov
+pytest-subprocess
