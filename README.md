@@ -42,6 +42,81 @@ To run your project in a Python environment, follow these steps to set up the vi
   ```
   This will return you to the global Python environment.
 
+## Tests
+This project is divided into two main parts: the **client** and the **server**. Each part has its own set of tests and coverage reports. 
+
+To run tests and view the coverage reports for both client and server, follow the instructions below.
+
+### Running Tests for the Server
+
+#### 1. Navigate to the server directory:
+
+```bash
+cd server
+```
+
+#### 2. Run the tests for the server:
+```bash
+pytest tests
+```
+This will run all tests in the server/tests folder and generate the coverage report.
+
+#### 3. Viewing the Server Coverage Report:
+After running the tests, the coverage report will be generated in the htmlcov directory. To view the report:
+
+**On Windows**:  
+  In PowerShell, run:
+
+  ```powershell
+  start .\htmlcov\index.html
+  ```
+  This will open the report in your default web browser.
+
+  **On macOS**:  
+  In the Terminal, run:
+
+  ```bash
+  open htmlcov/index.html
+  ```
+  This will open the report in your default web browser.
+
+### Running Tests for the Client
+
+#### 1. Navigate to the client directory:
+
+```bash
+cd client
+```
+
+#### 2. Run the tests for the client:
+```bash
+pytest tests
+```
+This will run all tests in the client/tests folder and generate the coverage report.
+
+#### 3. Viewing the Server Coverage Report:
+After running the tests, the coverage report will be generated in the htmlcov directory. To view the report:
+
+**On Windows**:  
+  In PowerShell, run:
+
+  ```powershell
+  start .\htmlcov\index.html
+  ```
+  This will open the report in your default web browser.
+
+  **On macOS**:  
+  In the Terminal, run:
+
+  ```bash
+  open htmlcov/index.html
+  ```
+  This will open the report in your default web browser.
+
+### Terminal Output Report
+In addition to the HTML report, the coverage report will also be printed in the terminal, giving you an overview of the test coverage directly in your command line
+
+
 ## Naming Conventions
 This project follows common Python naming conventions to ensure code readability and consistency. Below are the naming guidelines adopted for this project:
 ### 1. Variable and Function Names
@@ -107,7 +182,7 @@ This project follows common Python naming conventions to ensure code readability
   - send everything to target user
 
 
-## Client-Side
+### Client-Side
 #### 1. Generate RSA Key Pair (generate_RSA_key()):
 
 - Purpose: Generate a public/private key pair for encryption and signing.
