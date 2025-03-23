@@ -34,6 +34,7 @@ client_otp = {}  # Store OTP for each client
 client_sockets = {}  # Store client sockets
 challenges = {}
 
+
 #Initialize the SQLite database and create the users table.
 def init_db():
     with sqlite3.connect("user_data.db") as conn:
@@ -103,7 +104,7 @@ def verify_user(username, password):
         hashed_attempt = hash_password(password, salt)
         return hashed_attempt == stored_password
     return False
-
+  
 def generate_challenge(username):
     """
         Generate a secure random challenge for the client.
@@ -157,6 +158,7 @@ def send_otp_email(email, otp, client_socket):
         :param otp: The OTP to be sent.
         :param client_socket: The socket object used to communicate with the client.
     """
+
     time.sleep(1)
 
     # Ensure OTP is a clean string with no hidden characters
@@ -176,7 +178,6 @@ def send_otp_email(email, otp, client_socket):
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
             server.login(sender_email, sender_password)
             server.sendmail(sender_email, email, msg.as_string())
-
     except smtplib.SMTPAuthenticationError as e:
         print(f"Authentication error: {e}")
         client_socket.close()
@@ -246,6 +247,7 @@ def handle_registration(client_socket):
         print(f"Client {username} registered successfully.")
         client_socket.send("Registration successful!".encode())
 
+
 def handle_login(client_socket):
     """
         Handle the login process of a client.
@@ -280,11 +282,11 @@ def handle_login(client_socket):
             client_socket.send("valid signature!".encode())
         except Exception as e:
             client_socket.send("Invalid signature!".encode())
-            client_socket.close()
+            client_socket.close()  # close the connection after sending the error
             return
     else:
         client_socket.send("Client not registered!".encode())
-        client_socket.close()
+        client_socket.close()  # close the connection after sending the error
         return
 
     print(f"pass challenge for {username}")
