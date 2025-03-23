@@ -209,7 +209,13 @@ def main():
     print("Welcome! Please choose an option:")
     print("1. Register")
     print("2. Login")
-    choice = input("Choose option (1 or 2): ")
+    
+    choice = None
+    while choice not in ['1', '2']:
+        choice = input("Choose option (1 or 2): ")
+        if choice not in ['1', '2']:
+            print("Invalid option! Please choose again.")
+            
     username = input("Enter your username: ")
     
     private_key = None
@@ -238,7 +244,11 @@ def main():
         # then print the message to the user
 
         print("\nOptions: [1] Send Message [2] Exit")
-        choice = input("Choose an option: ")
+        choice = None
+        while choice not in ['1', '2']:
+            choice = input("Choose option (1 or 2): ")
+            if choice not in ['1', '2']:
+                print("Invalid option! Please choose again.")
         if choice == '2':
             client_socket.send('exit'.encode())
             break
