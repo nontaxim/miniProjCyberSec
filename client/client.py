@@ -1,6 +1,7 @@
 import socket
 import json
 import os
+import sys
 import time
 import getpass
 import re
@@ -129,6 +130,8 @@ def register_client(client_socket, username):
     
     email = input("Enter your email: ")
     password = getpass.getpass("Enter your password: ")
+    while not validate_password(password):
+        password = getpass.getpass("Enter your password: ")
     
     client_socket.send("register".encode())
     registration_data = {'username': username, 'public_key': public_key_pem, "email": email, "password": password}
@@ -171,14 +174,21 @@ def login_client(client_socket, username, private_key):
     challenge = client_socket.recv(1024).decode()
     signed_challenge = signed_message(private_key, challenge)
     client_socket.send(signed_challenge.encode())
+    signed_response = client_socket.recv(1024).decode()
+    if(signed_response != "valid signature!"):
+        print("Invalid signature!")
+        return False
     
     # TODO: display minimum requirement for password like minimum character, special character, number etc
     #       if password is not secure enough ask user to change password
     password = getpass.getpass("Enter your password: ")
-    client_socket.send(password.encode())
-    response = client_socket.recv(1024).decode()
-    print(f"Server response: {response}")
-    return response == "Login successful!"
+    try:
+        client_socket.send(password.encode())
+        response = client_socket.recv(1024).decode()
+        print(f"Server response: {response}")
+        return response == "Login successful!"
+    except Exception as e:
+        return False
 
 def send_message(client_socket, private_key, username):
     client_socket.send("send_message".encode())

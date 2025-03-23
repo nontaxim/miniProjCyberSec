@@ -1,6 +1,26 @@
 # Mini Project Topic: Secure Chat (CLI)
 secure messaging system that allows clients to register, log in, send encrypted messages to each other, and verify message authenticity using encryption and digital signatures. The server acts as an intermediary, handling registration, authentication, and message forwarding between clients. It focuses on security, utilizing public key cryptography (RSA), multi-factor authentication (password + signed message), and network communication via sockets.
 
+## Table of Contents
+1. [Set up](#set-up)
+2. [Tests](#tests)
+   - [Running Tests for the Server](#running-tests-for-the-server)
+   - [Running Tests for the Client](#running-tests-for-the-client)
+3. [Naming Conventions](#naming-conventions)
+4. [How it works](#how-its-work)
+   - [Server-Side](#server-side)
+   - [Client-Side](#client-side)
+5. [Testing tools](#testing-tools)
+   - [Unit testing](#unit-testing)
+   - [E2E testing](#e2e-testing)
+   - [Mocking](#mocking)
+   - [Security testing](#security-testing)
+   - [Load & Stress testing](#load--stress-testing)
+6. [Relevant Topics](#relevant-topics)
+   - [Encryption (RSA)](#encryption-rsa)
+   - [Authentication](#authentication)
+   - [Networking](#networking)
+
 ## Set up
 To run your project in a Python environment, follow these steps to set up the virtual environment and install the required dependencies:
 ### 1. Activate the Virtual Environment  
@@ -41,6 +61,81 @@ To run your project in a Python environment, follow these steps to set up the vi
   deactivate
   ```
   This will return you to the global Python environment.
+
+## How to run Tests
+This project is divided into two main parts: the **client** and the **server**. Each part has its own set of tests and coverage reports. 
+
+To run tests and view the coverage reports for both client and server, follow the instructions below.
+
+### Running Tests for the Server
+
+#### 1. Navigate to the server directory:
+
+```bash
+cd server
+```
+
+#### 2. Run the tests for the server:
+```bash
+pytest tests
+```
+This will run all tests in the server/tests folder and generate the coverage report.
+
+#### 3. Viewing the Server Coverage Report:
+After running the tests, the coverage report will be generated in the htmlcov directory. To view the report:
+
+**On Windows**:  
+  In PowerShell, run:
+
+  ```powershell
+  start .\htmlcov\index.html
+  ```
+  This will open the report in your default web browser.
+
+  **On macOS**:  
+  In the Terminal, run:
+
+  ```bash
+  open htmlcov/index.html
+  ```
+  This will open the report in your default web browser.
+
+### Running Tests for the Client
+
+#### 1. Navigate to the client directory:
+
+```bash
+cd client
+```
+
+#### 2. Run the tests for the client:
+```bash
+pytest tests
+```
+This will run all tests in the client/tests folder and generate the coverage report.
+
+#### 3. Viewing the Server Coverage Report:
+After running the tests, the coverage report will be generated in the htmlcov directory. To view the report:
+
+**On Windows**:  
+  In PowerShell, run:
+
+  ```powershell
+  start .\htmlcov\index.html
+  ```
+  This will open the report in your default web browser.
+
+  **On macOS**:  
+  In the Terminal, run:
+
+  ```bash
+  open htmlcov/index.html
+  ```
+  This will open the report in your default web browser.
+
+### Terminal Output Report
+In addition to the HTML report, the coverage report will also be printed in the terminal, giving you an overview of the test coverage directly in your command line
+
 
 ## Naming Conventions
 This project follows common Python naming conventions to ensure code readability and consistency. Below are the naming guidelines adopted for this project:
@@ -107,7 +202,7 @@ This project follows common Python naming conventions to ensure code readability
   - send everything to target user
 
 
-## Client-Side
+### Client-Side
 #### 1. Generate RSA Key Pair (generate_RSA_key()):
 
 - Purpose: Generate a public/private key pair for encryption and signing.
@@ -169,7 +264,7 @@ This project follows common Python naming conventions to ensure code readability
   - Verify the signature of the received message using the sender’s public key.
   - If the signature is valid, decrypt the message using the client’s private key and display it.
 
-## Testing
+## Testing tools
 ### Unit testing
   - [pytest](https://docs.pytest.org/en/stable/contents.html)
 ### E2E testing

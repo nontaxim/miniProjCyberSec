@@ -2,3 +2,13 @@ venv/
 __pycache__/
 .env
 *pem
+.pytest_cache/
+
+# Ignore pytest cache
+.cache/
+
+# Ignore coverage reports
+htmlcov/
+*.coverage
+coverage.xml
+*.coveragerc
