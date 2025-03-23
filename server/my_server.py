@@ -256,6 +256,8 @@ def handle_registration(client_socket):
         client_otp[username] = otp
         print(f"Sent OTP to {email}")
 
+    # Request OTP from client
+    client_socket.send("Please enter OTP".encode())
     # Wait for OTP from client
     otp_from_client = client_socket.recv(1024).decode()
 
