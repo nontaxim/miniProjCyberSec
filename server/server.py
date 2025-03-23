@@ -1,3 +1,4 @@
+import base64
 import socket
 import json
 import pyotp
@@ -21,7 +22,7 @@ load_dotenv(dotenv_path="./.env")
 sender_email = os.environ.get("SENDER_EMAIL")
 sender_password = os.environ.get("SENDER_PASSWORD")
 secret_key = os.environ.get("OTP_SECRET_KEY")
-salt = os.environ.get("SALT")
+salt = base64.b64decode(os.environ.get("SALT"))
 
 IS_BY_PASS_OTP = False
 
@@ -31,13 +32,7 @@ client_otp = {}  # Store OTP for each client
 client_sockets = {}  # Store client sockets
 challenges = {}
 
-# Connect to SQLite database (creates the file if it doesn't exist)
-conn = sqlite3.connect("user_data.db")
-
-# Create a cursor object to execute SQL commands
-cursor = conn.cursor()
-
- #Initialize the SQLite database and create the users table.
+#Initialize the SQLite database and create the users table.
 def init_db():
     with sqlite3.connect("user_data.db") as conn:
         cursor = conn.cursor()
@@ -53,7 +48,7 @@ def init_db():
         conn.commit()
 
 #Securely hash a password with PBKDF2 and return salt + hash.
-def hash_password(password, salt=None):
+def hash_password(password, salt):
     if salt is None:
         salt = os.urandom(16)  # Generate new salt
     hashed_password = hashlib.pbkdf2_hmac('sha256', password.encode(), salt, 100000)
@@ -61,18 +56,22 @@ def hash_password(password, salt=None):
 
  #Add a new user securely to the database
 def add_user(username, email, password, public_key):
-    with sqlite3.connect("user_data.db") as conn:
-        cursor = conn.cursor()
-        #salt = os.urandom(16)  # Generate salt for this user
-        hashed_password = hash_password(password, salt)
-
-        try:
-            cursor.execute("INSERT INTO users (username, email, password, public_key) VALUES (?, ?, ?, ?)", 
-                           (username, email, hashed_password, public_key))
-            conn.commit()
-            print(f"User {username} added successfully!")
-        except sqlite3.IntegrityError:
-            print(f"Error: A user with email {email} or username {username} already exists.")
+    print(username, email, password, public_key)
+    try:
+        with sqlite3.connect("user_data.db") as conn:
+            cursor = conn.cursor()
+            # salt = os.urandom(16)  # Generate salt for this user
+            hashed_password = hash_password(password, salt)
+            print(salt)
+            try:
+                cursor.execute("INSERT INTO users (username, email, password, public_key) VALUES (?, ?, ?, ?)", 
+                            (username, email, hashed_password, public_key))
+                conn.commit()
+                print(f"User {username} added successfully!")
+            except sqlite3.IntegrityError:
+                print(f"Error: A user with email {email} or username {username} already exists.")
+    except Exception as e:
+        print(f"Error adding user: {e}")
 
 def get_users():
     """
@@ -97,7 +96,8 @@ def verify_user(username, password):
 
     if result:
         stored_password = result[0]
-        salt = stored_password[:16]  # Extract salt
+        # CHECK**************** 
+        # salt = stored_password[:16]  # Extract salt
         hashed_attempt = hash_password(password, salt)
         return hashed_attempt == stored_password
     return False
@@ -139,10 +139,9 @@ def send_otp_email(email, otp, client_socket):
 
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-            print("MEOWWWWWWWWWWWWW")
             server.login(sender_email, sender_password)
             server.sendmail(sender_email, email, msg.as_string())
-            print("Sent OTP to", email)
+
     except smtplib.SMTPAuthenticationError as e:
         print(f"Authentication error: {e}")
         client_socket.close()
@@ -201,30 +200,11 @@ def handle_registration(client_socket):
     if not verify_otp(username, otp_from_client):
         client_socket.send("Invalid OTP!".encode())
         return
-        # TODO: hash password before storing
-        # TODO: store in DB not variable like this
-
-        # clients[username] = {
-        #     "username": username,
-        #     "email": email,
-        #     "public_key": public_key,
-        #     "password": hash(password),
-        # }
-
     else:
+        print("OTP verified! at 215")
         add_user(username, email, password, public_key)
         print(f"Client {username} registered successfully.")
         client_socket.send("Registration successful!".encode())
-
-# def hash(message):
-#     """
-#         Hash a password or other sensitive data.
-        
-#         :param message: The message to be hashed.
-#         :return: The hashed value of the message.
-#     """
-#     # TODO: find & use a secure hashing algorithm & please use some salt
-#     return message
 
 def handle_login(client_socket):
     """
