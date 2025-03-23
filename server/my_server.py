@@ -2,6 +2,7 @@ import base64
 import socket
 import json
 import pyotp
+import base64
 import smtplib
 import sqlite3
 import hashlib
@@ -14,6 +15,7 @@ from dotenv import load_dotenv
 import os
 import time
 import threading
+import re
 
 # Load environment variables from .env file
 load_dotenv(dotenv_path="./.env")
@@ -114,6 +116,39 @@ def generate_challenge(username):
     challenges[username] = (challenge, timestamp)  # Save challenge for validation
     return challenge
 
+def validate_secret_key(secret_key):
+    try:
+        # Decode the Base32 key to ensure it's valid
+        base64.b32decode(secret_key, casefold=True)
+        return True
+    except Exception as e:
+        print(f"Invalid secret key: {e}")
+        return False
+    
+def validate_password(password):
+    """
+    Validate the password based on specific criteria.
+    
+    :param password: The password to validate.
+    :return: True if the password meets the criteria, False otherwise.
+    """
+    if len(password) < 8:
+        print("Password must be at least 8 characters long.")
+        return False
+    if not any(char.isdigit() for char in password):
+        print("Password must contain at least one number.")
+        return False
+    if not any(char.isupper() for char in password):
+        print("Password must contain at least one uppercase letter.")
+        return False
+    if not any(char.islower() for char in password):
+        print("Password must contain at least one lowercase letter.")
+        return False
+    if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
+        print("Password must contain at least one special character (!@#$%^&*(),.?\":{}|<>).")
+        return False
+    return True
+
 def send_otp_email(email, otp, client_socket):
     """
         Send an OTP to the user's email address.
@@ -186,6 +221,11 @@ def handle_registration(client_socket):
     email = user_data['email']
     password = user_data['password']
     public_key = user_data['public_key']
+    
+    # Validate password
+    while not validate_password(password):
+        client_socket.send("Invalid password! Please enter a stronger password.".encode())
+        password = client_socket.recv(1024).decode()
 
     # Generate OTP and send to client's email
     if not IS_BY_PASS_OTP:
@@ -237,14 +277,14 @@ def handle_login(client_socket):
                 padding.PKCS1v15(),
                 hashes.SHA256()
             )
-        except Exception:
-        # except Exception as e:
+            client_socket.send("valid signature!".encode())
+        except Exception as e:
             client_socket.send("Invalid signature!".encode())
-            # client_socket.close()
+            client_socket.close()
             return
     else:
         client_socket.send("Client not registered!".encode())
-        # client_socket.close()
+        client_socket.close()
         return
 
     print(f"pass challenge for {username}")
@@ -260,7 +300,7 @@ def handle_login(client_socket):
     if not verify_user(username, password):
     # if clients[username]['password'] != password:
         client_socket.send("Invalid password!".encode())
-        # client_socket.close()
+        client_socket.close()
         return
     client_socket.send("Login successful!".encode())
 
@@ -352,6 +392,16 @@ def start_server():
         
         This function will handle each client in a separate thread.
     """
+    global secret_key
+    if not secret_key:
+        print("OTP_SECRET_KEY not found in .env. Generating a new one...")
+        secret_key = pyotp.random_base32()
+        print(f"Generated OTP_SECRET_KEY🔑 successfully")
+        
+    # Validate the secret key
+    if not validate_secret_key(secret_key):
+        raise ValueError("Invalid OTP_SECRET_KEY. Please check your .env file or regenerate the key.")
+    
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.bind(('0.0.0.0', 5555))
     server.listen(5)
