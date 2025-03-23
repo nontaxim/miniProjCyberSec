@@ -51,6 +51,30 @@ def validate_secret_key(secret_key):
         print(f"Invalid secret key: {e}")
         return False
     
+def validate_password(password):
+    """
+    Validate the password based on specific criteria.
+    
+    :param password: The password to validate.
+    :return: True if the password meets the criteria, False otherwise.
+    """
+    if len(password) < 8:
+        print("Password must be at least 8 characters long.")
+        return False
+    if not any(char.isdigit() for char in password):
+        print("Password must contain at least one number.")
+        return False
+    if not any(char.isupper() for char in password):
+        print("Password must contain at least one uppercase letter.")
+        return False
+    if not any(char.islower() for char in password):
+        print("Password must contain at least one lowercase letter.")
+        return False
+    if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
+        print("Password must contain at least one special character (!@#$%^&*(),.?\":{}|<>).")
+        return False
+    return True
+
 def send_otp_email(email, otp, client_socket):
     """
         Send an OTP to the user's email address.
@@ -112,6 +136,11 @@ def handle_registration(client_socket):
     email = user_data['email']
     password = user_data['password']
     public_key = user_data['public_key']
+    
+    # Validate password
+    while not validate_password(password):
+        client_socket.send("Invalid password! Please enter a stronger password.".encode())
+        password = client_socket.recv(1024).decode()
 
     # Generate OTP and send to client's email
     if not IS_BY_PASS_OTP:
