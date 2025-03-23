@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 import os
 import time
 import threading
+import re
 
 # Load environment variables from .env file
 load_dotenv(dotenv_path="./.env")
