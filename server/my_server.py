@@ -226,7 +226,7 @@ def handle_registration(client_socket):
     # Validate password
     while not validate_password(password):
         client_socket.send("Invalid password! Please enter a stronger password.".encode())
-        password = client_socket.recv(1024).decode()
+        return
 
     # Generate OTP and send to client's email
     if not IS_BY_PASS_OTP:
