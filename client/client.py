@@ -114,6 +114,16 @@ def validate_password(password):
         return False
     return True
 
+def validate_email(email):
+    """
+    Validate if the input is a valid email address.
+    
+    :param email: The email to validate.
+    :return: True if the email is valid, False otherwise.
+    """
+    email_regex = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
+    return re.match(email_regex, email) is not None
+
 def register_client(client_socket, username):
     """
     Register a new client by generating keys and sending the public key to the server.
@@ -128,7 +138,13 @@ def register_client(client_socket, username):
         format=serialization.PublicFormat.SubjectPublicKeyInfo
     ).decode('utf-8')
     
+    while not username.strip():
+        username = input("Username cannot be empty.\nPlease enter your username: ")
+
     email = input("Enter your email: ")
+    while not validate_email(email):
+        email = input("Invalid email format.\nPlease enter a valid email: ")
+        
     password = getpass.getpass("Enter your password: ")
     while not validate_password(password):
         password = getpass.getpass("Enter your password: ")
