@@ -228,7 +228,12 @@ def send_message(client_socket, private_key, username):
     client_socket.send("send_message".encode())
     
     to_client = input("Enter recipient's username: ")
+    while not to_client.strip():
+        to_client = input("recipient's usernam cannot be empty.\nPlease enter your recipient's username: ")
+
     message = input("Enter your message: ")
+    while not message.strip():
+        message = input("Message cannot be empty.\nPlease enter your message: ")
 
     recipient_public_key = request_public_key(client_socket, to_client)
     if not recipient_public_key or recipient_public_key == "Recipient not found!":
