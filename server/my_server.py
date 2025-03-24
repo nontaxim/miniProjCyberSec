@@ -88,7 +88,7 @@ def get_users():
     for user in users:
         print(user)
 
-def verify_user(username, password):
+def verify_user(username, password, salt):
     """
     Verify user's login credentials.
     """
@@ -316,11 +316,7 @@ def handle_login(client_socket):
     password = client_socket.recv(1024).decode()
     print(f"Received password: {password}")
 
-    # TODO: hash password before comparing
-    password = client_socket.recv(1024).decode()
-
-    if not verify_user(username, password):
-    # if clients[username]['password'] != password:
+    if not verify_user(username, password, salt):
         client_socket.send("Invalid password!".encode())
         client_socket.close()
         return
