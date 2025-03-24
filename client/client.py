@@ -231,7 +231,7 @@ def send_message(client_socket, private_key, username):
     message = input("Enter your message: ")
 
     recipient_public_key = request_public_key(client_socket, to_client)
-    if not recipient_public_key:
+    if not recipient_public_key or recipient_public_key == "Recipient not found!":
         print("Failed to get recipient's public key.")
         return
 
