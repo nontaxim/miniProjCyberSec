@@ -132,6 +132,12 @@ def register_client(client_socket, username):
     :param username: The username to register.
     :return: Tuple (private_key, public_key) on success, None otherwise.
     """
+    client_socket.send("register".encode())
+    response = client_socket.recv(1024).decode()
+    if response != "registration":
+        print(f"Server response: {response}")
+        client_socket.close()
+        return None, None
     private_key, public_key = generate_RSA_key(username)
     public_key_pem = public_key.public_bytes(
         encoding=serialization.Encoding.PEM,
@@ -148,8 +154,7 @@ def register_client(client_socket, username):
     password = getpass.getpass("Enter your password: ")
     while not validate_password(password):
         password = getpass.getpass("Enter your password: ")
-    
-    client_socket.send("register".encode())
+
     registration_data = {'username': username, 'public_key': public_key_pem, "email": email, "password": password}
     client_socket.send(json.dumps(registration_data).encode())
     
@@ -184,7 +189,10 @@ def login_client(client_socket, username, private_key):
     :return: True if login is successful, False otherwise.
     """
     client_socket.send("login".encode())
-    time.sleep(1)
+    response = client_socket.recv(1024).decode()
+    if response != "login":
+        print(f"Server response: {response}")
+        return False
     client_socket.send(username.encode())
     
     challenge = client_socket.recv(1024).decode()
@@ -208,6 +216,10 @@ def login_client(client_socket, username, private_key):
 
 def send_message(client_socket, private_key, username):
     client_socket.send("send_message".encode())
+    response = client_socket.recv(1024).decode()
+    if response != "message":
+        print(f"Server response: {response}")
+        return
     to_client = input("Enter recipient's username: ")
     message = input("Enter your message: ")
     recipient_public_key = request_public_key(client_socket, to_client)

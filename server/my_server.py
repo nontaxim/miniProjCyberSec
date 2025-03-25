@@ -225,6 +225,7 @@ def handle_registration(client_socket):
         
         :param client_socket: The socket object used to communicate with the client.
     """
+    client_socket.send("registration".encode())
     data = client_socket.recv(1024).decode()
     user_data = json.loads(data)
 
@@ -274,6 +275,7 @@ def handle_login(client_socket):
         
         :param client_socket: The socket object used to communicate with the client.
     """
+    client_socket.send("login".encode())
     data = client_socket.recv(1024).decode()
     username = data
 
@@ -355,6 +357,7 @@ def handle_message(client_socket):
         
         :param client_socket: The socket object used to communicate with the client.
     """
+    client_socket.send("message".encode())
     to_client = client_socket.recv(1024).decode()
     print(f"Message to: {to_client}")
     client_socket.send(get_public_key(to_client).encode())
