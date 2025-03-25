@@ -1,7 +1,9 @@
 # Mini Project Topic: Secure Chat (CLI)
+
 secure messaging system that allows clients to register, log in, send encrypted messages to each other, and verify message authenticity using encryption and digital signatures. The server acts as an intermediary, handling registration, authentication, and message forwarding between clients. It focuses on security, utilizing public key cryptography (RSA), multi-factor authentication (password + signed message), and network communication via sockets.
 
 ## Table of Contents
+
 1. [Set up](#set-up)
 2. [Tests](#tests)
    - [Running Tests for the Server](#running-tests-for-the-server)
@@ -22,48 +24,65 @@ secure messaging system that allows clients to register, log in, send encrypted 
    - [Networking](#networking)
 
 ## Set up
+
 To run your project in a Python environment, follow these steps to set up the virtual environment and install the required dependencies:
-### 1. Activate the Virtual Environment  
-  The virtual environment isolates your project’s dependencies, making sure you don't have conflicts with other Python projects on your machine.
-  - **On Windows**, run:
-  ```bash
-  .\venv\Scripts\activate
-  ```
-  - **On Mac/Linux**, run:
-  ```bash
-  source venv/bin/activate
-  ```
+
+### 1. Activate the Virtual Environment
+
+The virtual environment isolates your project’s dependencies, making sure you don't have conflicts with other Python projects on your machine.
+
+- **On Windows**, run:
+
+```bash
+.\venv\Scripts\activate
+```
+
+- **On Mac/Linux**, run:
+
+```bash
+source venv/bin/activate
+```
 
 ### 2. Install Dependencies from requirements.txt
-  Once the virtual environment is activated, you'll need to install the necessary Python packages that your project depends on. These packages are listed in the `requirements.txt` file.
-  Run this command:
-  ```bash
-  pip install -r requirements.txt
-  ```
-  This will install all the packages listed in the requirements.txt file.
+
+Once the virtual environment is activated, you'll need to install the necessary Python packages that your project depends on. These packages are listed in the `requirements.txt` file.
+Run this command:
+
+```bash
+pip install -r requirements.txt
+```
+
+This will install all the packages listed in the requirements.txt file.
 
 ### 3. Run Your Project
-  After setting up the environment and installing the dependencies, you can run your project by following the instructions for running the server or client.
 
-  ```bash
-  cd server ; python server.py
-  ```
-  or
-  ```bash
-  cd client ; python client.py
-  ```
-  depending on which part of the project you want to execute.
+After setting up the environment and installing the dependencies, you can run your project by following the instructions for running the server or client.
+
+```bash
+cd server ; python server.py
+```
+
+or
+
+```bash
+cd client ; python client.py
+```
+
+depending on which part of the project you want to execute.
 
 ### 4. Deactivating the Virtual Environment
-  Once you're done working in the virtual environment, you can deactivate it by running:
 
-  ```bash
-  deactivate
-  ```
-  This will return you to the global Python environment.
+Once you're done working in the virtual environment, you can deactivate it by running:
+
+```bash
+deactivate
+```
+
+This will return you to the global Python environment.
 
 ## How to run Tests
-This project is divided into two main parts: the **client** and the **server**. Each part has its own set of tests and coverage reports. 
+
+This project is divided into two main parts: the **client** and the **server**. Each part has its own set of tests and coverage reports.
 
 To run tests and view the coverage reports for both client and server, follow the instructions below.
 
@@ -76,29 +95,34 @@ cd server
 ```
 
 #### 2. Run the tests for the server:
+
 ```bash
 pytest tests
 ```
+
 This will run all tests in the server/tests folder and generate the coverage report.
 
 #### 3. Viewing the Server Coverage Report:
+
 After running the tests, the coverage report will be generated in the htmlcov directory. To view the report:
 
 **On Windows**:  
-  In PowerShell, run:
+ In PowerShell, run:
 
-  ```powershell
-  start .\htmlcov\index.html
-  ```
-  This will open the report in your default web browser.
+```powershell
+start .\htmlcov\index.html
+```
 
-  **On macOS**:  
-  In the Terminal, run:
+This will open the report in your default web browser.
 
-  ```bash
-  open htmlcov/index.html
-  ```
-  This will open the report in your default web browser.
+**On macOS**:  
+ In the Terminal, run:
+
+```bash
+open htmlcov/index.html
+```
+
+This will open the report in your default web browser.
 
 ### Running Tests for the Client
 
@@ -109,55 +133,67 @@ cd client
 ```
 
 #### 2. Run the tests for the client:
+
 ```bash
 pytest tests
 ```
+
 This will run all tests in the client/tests folder and generate the coverage report.
 
 #### 3. Viewing the Server Coverage Report:
+
 After running the tests, the coverage report will be generated in the htmlcov directory. To view the report:
 
 **On Windows**:  
-  In PowerShell, run:
+ In PowerShell, run:
 
-  ```powershell
-  start .\htmlcov\index.html
-  ```
-  This will open the report in your default web browser.
+```powershell
+start .\htmlcov\index.html
+```
 
-  **On macOS**:  
-  In the Terminal, run:
+This will open the report in your default web browser.
 
-  ```bash
-  open htmlcov/index.html
-  ```
-  This will open the report in your default web browser.
+**On macOS**:  
+ In the Terminal, run:
+
+```bash
+open htmlcov/index.html
+```
+
+This will open the report in your default web browser.
 
 ### Terminal Output Report
+
 In addition to the HTML report, the coverage report will also be printed in the terminal, giving you an overview of the test coverage directly in your command line
 
-
 ## Naming Conventions
+
 This project follows common Python naming conventions to ensure code readability and consistency. Below are the naming guidelines adopted for this project:
+
 ### 1. Variable and Function Names
-  - Format: snake_case
-  - All variable names and function names are written in lowercase letters, with words separated by underscores.
+
+- Format: snake_case
+- All variable names and function names are written in lowercase letters, with words separated by underscores.
 
 ### 2. Class Names
-  - Format: PascalCase (also known as UpperCamelCase)
-  - Class names begin with a capital letter, and each subsequent word is capitalized.
+
+- Format: PascalCase (also known as UpperCamelCase)
+- Class names begin with a capital letter, and each subsequent word is capitalized.
 
 ### 3. Constants
-  - Format: UPPERCASE_SNAKE_CASE
-  - Constants are written in all uppercase letters, with words separated by underscores.
 
+- Format: UPPERCASE_SNAKE_CASE
+- Constants are written in all uppercase letters, with words separated by underscores.
 
 ### 4. Private Variables/Functions
-  - Format: _snake_case
-  - Private variables or functions (intended for internal use only) begin with a single underscore to indicate they should not be accessed directly outside of the class or module.
+
+- Format: \_snake_case
+- Private variables or functions (intended for internal use only) begin with a single underscore to indicate they should not be accessed directly outside of the class or module.
 
 ## How it's work?
+
 ### Server-Side
+
 #### 1. Setup Server (server.py):
 
 - Purpose: Set up the server to handle multiple client connections, use threads to handle simultaneous requests, and manage communication.
@@ -182,7 +218,7 @@ This project follows common Python naming conventions to ensure code readability
 - Responsibilities:
   - Send a challenge message to the client (a random message that needs to be signed by the client).
   - Receive the signed challenge message from the client (Something you have).
-  - Verify the signature using the client’s public key 
+  - Verify the signature using the client’s public key
   - Receive password from the client (Something you know).
   - Return success/failure response to the client.
 
@@ -201,8 +237,8 @@ This project follows common Python naming conventions to ensure code readability
   - Receive a message that includes the sender’s username, target username, encrypted message, and the signature of the encrypted message.
   - send everything to target user
 
-
 ### Client-Side
+
 #### 1. Generate RSA Key Pair (generate_RSA_key()):
 
 - Purpose: Generate a public/private key pair for encryption and signing.
@@ -265,30 +301,68 @@ This project follows common Python naming conventions to ensure code readability
   - If the signature is valid, decrypt the message using the client’s private key and display it.
 
 ## Testing tools
+
 ### Unit testing
-  - [pytest](https://docs.pytest.org/en/stable/contents.html)
+
+- [pytest](https://docs.pytest.org/en/stable/contents.html)
+
 ### E2E testing
-  - [pytest-subprocess](https://pytest-subprocess.readthedocs.io/en/latest/)
+
+#### Prerequisites
+
+Before running E2E tests, ensure that you have the following tools installed and configured:
+**MailHog**: A mock email server used to capture OTPs during testing.
+- **Installation**:
+
+  - **macOS (via Homebrew)**:
+    ```bash
+    brew install mailhog
+    ```
+  - **Linux/Windows**:
+    Download the binary from [MailHog Releases](https://github.com/mailhog/MailHog/releases) and run it.
+
+- **Usage**:
+
+  - Start MailHog:
+    ```bash
+    mailhog
+    ```
+  - MailHog will listen on:
+    - SMTP: `localhost:1025`
+    - Web UI: `http://localhost:8025`
+
+- **Verify**:
+
+  - Open `http://localhost:8025` in your browser to ensure MailHog is running.
+
+- [pytest-subprocess](https://pytest-subprocess.readthedocs.io/en/latest/)
+
 ### Mocking
-  - [pytest-mock](https://pytest-mock.readthedocs.io/en/latest/)
+
+- [pytest-mock](https://pytest-mock.readthedocs.io/en/latest/)
+
 ### Security testing
-  - [bandit](https://github.com/PyCQA/bandit)
+
+- [bandit](https://github.com/PyCQA/bandit)
+
 ### Load & Stress testing
-  - [Locust](https://docs.locust.io/en/stable/)
+
+- [Locust](https://docs.locust.io/en/stable/)
 
 ## Relevant Topics
 
 ### 1. Encryption (RSA):
 
 - Encryption:
- - RSA encryption and decryption (asymmetric encryption).
- - Using public/private key pairs for encryption and signing messages.
+- RSA encryption and decryption (asymmetric encryption).
+- Using public/private key pairs for encryption and signing messages.
 
 ### 2. Authentication
+
 - Multi-factor authentication (MFA)
   - Challenge-response authentication with RSA signing (Something You Have)
   - password (Something You Know)
 
 ### 3. Networking:
 
-  - Socket
+- Socket
