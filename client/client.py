@@ -137,6 +137,16 @@ def validate_password(password):
         return False
     return True
 
+def validate_email(email):
+    """
+    Validate if the input is a valid email address.
+    
+    :param email: The email to validate.
+    :return: True if the email is valid, False otherwise.
+    """
+    email_regex = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
+    return re.match(email_regex, email) is not None
+
 def register_client(client_socket, username):
     """
     Register a new client by generating keys and sending the public key to the server.
@@ -145,18 +155,29 @@ def register_client(client_socket, username):
     :param username: The username to register.
     :return: Tuple (private_key, public_key) on success, None otherwise.
     """
+    client_socket.send("register".encode())
+    response = client_socket.recv(1024).decode()
+    if response != "registration":
+        print(f"Server response: {response}")
+        client_socket.close()
+        return None, None
     private_key, public_key = generate_RSA_key(username)
     public_key_pem = public_key.public_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PublicFormat.SubjectPublicKeyInfo
     ).decode('utf-8')
     
+    while not username.strip():
+        username = input("Username cannot be empty.\nPlease enter your username: ")
+
     email = input("Enter your email: ")
+    while not validate_email(email):
+        email = input("Invalid email format.\nPlease enter a valid email: ")
+        
     password = getpass.getpass("Enter your password: ")
     while not validate_password(password):
         password = getpass.getpass("Enter your password: ")
-    
-    client_socket.send("register".encode())
+
     registration_data = {'username': username, 'public_key': public_key_pem, "email": email, "password": password}
     client_socket.send(json.dumps(registration_data).encode())
     
@@ -192,6 +213,12 @@ def login_client(client_socket, username, private_key):
     """
     client_socket.send("login".encode())
     time.sleep(0.5)
+
+    response = client_socket.recv(1024).decode()
+    if response != "login":
+        print(f"Server response: {response}")
+        return False
+      
     client_socket.send(username.encode())
     
     challenge = client_socket.recv(1024).decode()
@@ -226,7 +253,12 @@ def send_message(client_socket, private_key, username):
     :param username: The sender's username.
     """
     client_socket.send("send_message".encode())
-    
+
+    response = client_socket.recv(1024).decode()
+    if response != "message":
+        print(f"Server response: {response}")
+        return
+      
     to_client = input("Enter recipient's username: ")
     while not to_client.strip():
         to_client = input("recipient's usernam cannot be empty.\nPlease enter your recipient's username: ")
@@ -319,7 +351,13 @@ def main():
     print("Welcome! Please choose an option:")
     print("1. Register")
     print("2. Login")
-    choice = input("Choose option (1 or 2): ")
+    
+    choice = None
+    while choice not in ['1', '2']:
+        choice = input("Choose option (1 or 2): ")
+        if choice not in ['1', '2']:
+            print("Invalid option! Please choose again.")
+            
     username = input("Enter your username: ")
     
     private_key = None
@@ -343,7 +381,11 @@ def main():
     
     while True:
         print("\nOptions: [1] Send Message [2] Exit")
-        choice = input("Choose an option: ")
+        choice = None
+        while choice not in ['1', '2']:
+            choice = input("Choose option (1 or 2): ")
+            if choice not in ['1', '2']:
+                print("Invalid option! Please choose again.")
         if choice == '2':
             client_socket.send('exit'.encode())
             break
