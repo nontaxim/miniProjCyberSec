@@ -26,7 +26,7 @@ sender_password = os.environ.get("SENDER_PASSWORD")
 secret_key = os.environ.get("OTP_SECRET_KEY")
 salt = base64.b64decode(os.environ.get("SALT"))
 
-IS_BY_PASS_OTP = True
+IS_BY_PASS_OTP = False
 
 # Dictionaries to store client details, OTP, sockets, and challenges
 clients = {}  # Store clients' details (username -> public_key)
@@ -264,13 +264,13 @@ def handle_registration(client_socket):
     # Wait for OTP from client
     otp_from_client = client_socket.recv(1024).decode()
 
-    if not verify_otp(username, otp_from_client):
-        client_socket.send("Invalid OTP!".encode())
-        return
-    else:
-        print("OTP verified! at 215")
-        add_user(username, email, password, public_key)
-        print(f"Client {username} registered successfully.")
+        if not verify_otp(username, otp_from_client):
+            client_socket.send("Invalid OTP!".encode())
+            return
+        else:
+            print("OTP verified! at 215")
+            add_user(username, email, password, public_key)
+            print(f"Client {username} registered successfully.")
         client_socket.send("Registration successful!".encode())
     else:
         client_socket.send("Invalid OTP!".encode())
@@ -323,11 +323,9 @@ def handle_login(client_socket):
             client_socket.send("Invalid signature!".encode())
             client_socket.close()  # close the connection after sending the error
             return
-            return
     else:
         client_socket.send("Client not registered!".encode())
         client_socket.close()  # close the connection after sending the error
-        return
         return
 
     print(f"pass challenge for {username}")
