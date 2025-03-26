@@ -27,6 +27,7 @@ secret_key = os.environ.get("OTP_SECRET_KEY")
 salt = base64.b64decode(os.environ.get("SALT"))
 
 IS_BY_PASS_OTP = False
+IS_BY_PASS_OTP = False
 
 # Dictionaries to store client details, OTP, sockets, and challenges
 clients = {}  # Store clients' details (username -> public_key)
@@ -297,16 +298,6 @@ def handle_registration(client_socket):
     client_sockets[username] = client_socket
     print(f"Client {username} registered. Active clients: {list(client_sockets.keys())}")
 
-def hash(message):
-    """
-        Hash a password or other sensitive data.
-        
-        :param message: The message to be hashed.
-        :return: The hashed value of the message.
-    """
-    # TODO: find & use a secure hashing algorithm & please use some salt
-    return message
-
 def handle_login(client_socket):
     """
     Handle the login process of a client.
@@ -356,7 +347,6 @@ def handle_login(client_socket):
 
     if not verify_user(username, password, salt):
         client_socket.send("Invalid password!".encode())
-
         client_socket.close()
         return
     client_socket.send("Login successful!".encode())
