@@ -181,8 +181,14 @@ def register_client(client_socket, username):
     registration_data = {'username': username, 'public_key': public_key_pem, "email": email, "password": password}
     client_socket.send(json.dumps(registration_data).encode())
     
-    OTP_data = input("Enter OTP: ")
-    client_socket.send(OTP_data.encode())
+    response = client_socket.recv(1024).decode()
+    if response == "Please enter OTP":
+        OTP_data = input("Enter OTP: ")  # Read OTP from user
+        client_socket.send(OTP_data.encode())  # Send OTP to server
+    else:
+        print(f"Unexpected server response: {response}")
+        return None
+    
     response = client_socket.recv(1024).decode()
     print(f"Server response: {response}")
     if "successful" not in response:

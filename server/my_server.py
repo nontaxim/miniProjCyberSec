@@ -11,14 +11,14 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.backends import default_backend
-from dotenv import load_dotenv
+from dotenv import load_dotenv , find_dotenv
 import os
 import time
 import threading
 import re
 
 # Load environment variables from .env file
-load_dotenv(dotenv_path="./.env")
+load_dotenv(find_dotenv())
 
 # Access the variables
 sender_email = os.environ.get("SENDER_EMAIL")
@@ -63,18 +63,24 @@ def add_user(username, email, password, public_key):
     try:
         with sqlite3.connect("user_data.db") as conn:
             cursor = conn.cursor()
-            # salt = os.urandom(16)  # Generate salt for this user
             hashed_password = hash_password(password, salt)
             print(salt)
-            try:
-                cursor.execute("INSERT INTO users (username, email, password, public_key) VALUES (?, ?, ?, ?)", 
-                            (username, email, hashed_password, public_key))
-                conn.commit()
-                print(f"User {username} added successfully!")
-            except sqlite3.IntegrityError:
-                print(f"Error: A user with email {email} or username {username} already exists.")
+            # Check if email or username already exists
+            cursor.execute("SELECT username, email FROM users WHERE username = ? OR email = ?", (username, email))
+            existing_user = cursor.fetchone()
+            if existing_user:
+                if existing_user[0] == username:
+                    return "This username already exists"
+                if existing_user[1] == email:
+                    return "This email already exists"
+            # Insert new user
+            cursor.execute("INSERT INTO users (username, email, password, public_key) VALUES (?, ?, ?, ?)", 
+                           (username, email, hashed_password, public_key))
+            conn.commit()
+            print(f"User {username} added successfully!")
     except Exception as e:
         print(f"Error adding user: {e}")
+        return "error"
 
 def get_users():
     """
@@ -185,9 +191,22 @@ def send_otp_email(email, otp, client_socket):
     msg["To"] = email
 
     try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-            server.login(sender_email, sender_password)
-            server.sendmail(sender_email, email, msg.as_string())
+        # Check the mode from environment variable
+        app_mode = os.environ.get("APP_MODE", "production").lower()
+
+        if app_mode == "test":
+            print(f"------APP_MODE: {app_mode}-------")
+            print(f"using localhost SMTP for testing in port 1025")
+            print(f"By Capturing the email using MailHog")
+            # Use MailHog for testing
+            with smtplib.SMTP("localhost", 1025) as server:
+                server.sendmail(sender_email, email, msg.as_string())
+        else:
+            # Use Gmail SMTP for production
+            with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+                server.login(sender_email, sender_password)
+                server.sendmail(sender_email, email, msg.as_string())
+                
     except smtplib.SMTPAuthenticationError as e:
         print(f"Authentication error: {e}")
         client_socket.close()
@@ -250,10 +269,6 @@ def handle_registration(client_socket):
         client_socket.send("Username already exists!".encode())
         return
 
-    if username in clients:
-        client_socket.send("Username already exists!".encode())
-        return
-
     # Generate OTP and send to client's email
     if not IS_BY_PASS_OTP:
         otp = generate_otp()
@@ -261,19 +276,23 @@ def handle_registration(client_socket):
         client_otp[username] = otp
         print(f"Sent OTP to {email}")
 
+    # Request OTP from client
+    client_socket.send("Please enter OTP".encode())
     # Wait for OTP from client
     otp_from_client = client_socket.recv(1024).decode()
 
-        if not verify_otp(username, otp_from_client):
-            client_socket.send("Invalid OTP!".encode())
-            return
-        else:
-            print("OTP verified! at 215")
-            add_user(username, email, password, public_key)
-            print(f"Client {username} registered successfully.")
-        client_socket.send("Registration successful!".encode())
-    else:
+    if not verify_otp(username, otp_from_client):
         client_socket.send("Invalid OTP!".encode())
+        return
+    else:
+        print("OTP verified! at 215")
+        error = add_user(username, email, password, public_key)
+        if error:
+            print(f"Error adding user: {error}")
+            client_socket.send(error.encode())
+            return
+        print(f"Client {username} registered successfully.")
+        client_socket.send("Registration successful!".encode())
 
     client_sockets[username] = client_socket
     print(f"Client {username} registered. Active clients: {list(client_sockets.keys())}")
@@ -459,6 +478,7 @@ def handle_client(client_socket):
                 break  # Exit loop
         except Exception as e:
             print(f"Error handling client: {e}")
+            client_socket.send("Missing data".encode())
             break  # Stop loop on error
 
     client_socket.close()
