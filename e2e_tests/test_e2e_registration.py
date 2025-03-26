@@ -46,6 +46,10 @@ def test_registration_success_with_email(start_server, client_socket):
     # Send the "register" command to the server to initiate the registration process
     client_socket.send("register".encode())
     
+    # รอข้อความ "registration" จากเซิร์ฟเวอร์
+    response = client_socket.recv(1024).decode()
+    assert response == "registration", "Server did not send 'registration' as expected"
+    
     # Generate an RSA key pair for the user
     private_key = rsa.generate_private_key(
         public_exponent=65537,
@@ -88,6 +92,10 @@ def test_registration_fail_invalid_otp(start_server, client_socket):
     print("-" * 50)
     client_socket.send("register".encode())
     
+    # รอข้อความ "registration" จากเซิร์ฟเวอร์
+    response = client_socket.recv(1024).decode()
+    assert response == "registration", "Server did not send 'registration' as expected"
+    
     # Generate an RSA key pair for the user
     private_key = rsa.generate_private_key(
         public_exponent=65537,
@@ -124,6 +132,10 @@ def test_registration_fail_duplicate_email(start_server, client_socket):
     """Test registration failure when a duplicate email is used."""
     print("-" * 50)
     client_socket.send("register".encode())
+    
+    # รอข้อความ "registration" จากเซิร์ฟเวอร์
+    response = client_socket.recv(1024).decode()
+    assert response == "registration", "Server did not send 'registration' as expected"
     
     # Generate an RSA key pair for the user
     private_key = rsa.generate_private_key(
@@ -165,6 +177,10 @@ def test_registration_fail_duplicate_username(start_server, client_socket):
     print("-" * 50)
     client_socket.send("register".encode())
     
+    # รอข้อความ "registration" จากเซิร์ฟเวอร์
+    response = client_socket.recv(1024).decode()
+    assert response == "registration", "Server did not send 'registration' as expected"
+    
     # Generate an RSA key pair for the user
     private_key = rsa.generate_private_key(
         public_exponent=65537,
@@ -205,6 +221,10 @@ def test_registration_fail_missing_data(start_server, client_socket):
     """Test registration failure when required data is missing."""
     print("-" * 50)
     client_socket.send("register".encode())
+    
+    # รอข้อความ "registration" จากเซิร์ฟเวอร์
+    response = client_socket.recv(1024).decode()
+    assert response == "registration", "Server did not send 'registration' as expected"
     
     # Simulated registration data missing the `email` field
     registration_data = {
