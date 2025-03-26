@@ -5,6 +5,7 @@ import sys
 import time
 import getpass
 import re
+import threading
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import serialization
@@ -74,6 +75,28 @@ def encrypt_message(public_key_pem, message):
         )
     )
     return encrypted_message.hex()
+
+def decrypt_message(private_key, encrypted_message_hex):
+    """
+    Decrypt a message using the recipient's private key.
+    
+    :param private_key: The recipient's private key.
+    :param encrypted_message_hex: The encrypted message as a hexadecimal string.
+    :return: The decrypted message string.
+    """
+    try:
+        decrypted_message = private_key.decrypt(
+            bytes.fromhex(encrypted_message_hex),
+            padding.OAEP(
+                mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                algorithm=hashes.SHA256(),
+                label=None
+            )
+        ).decode()
+        return decrypted_message
+    except Exception as e:
+        print(f"Error decrypting message: {e}")
+        return None
 
 def signed_message(private_key, message):
     """
@@ -168,7 +191,7 @@ def register_client(client_socket, username):
     
     response = client_socket.recv(1024).decode()
     print(f"Server response: {response}")
-    if response != "Registration successful!":
+    if "successful" not in response:
         print("Registration failed!")
         return None
     
@@ -183,7 +206,7 @@ def request_public_key(client_socket, to_client):
     :return: The recipient's public key in PEM format.
     """
     client_socket.send(to_client.encode())
-    return client_socket.recv(1024).decode()
+    return client_socket.recv(4096).decode()
 
 def login_client(client_socket, username, private_key):
     """
@@ -195,13 +218,20 @@ def login_client(client_socket, username, private_key):
     :return: True if login is successful, False otherwise.
     """
     client_socket.send("login".encode())
+    time.sleep(0.5)
+
     response = client_socket.recv(1024).decode()
     if response != "login":
         print(f"Server response: {response}")
         return False
+      
     client_socket.send(username.encode())
     
     challenge = client_socket.recv(1024).decode()
+    if "not registered" in challenge:
+        print(f"Error: {challenge}")
+        return False
+        
     signed_challenge = signed_message(private_key, challenge)
     client_socket.send(signed_challenge.encode())
     signed_response = client_socket.recv(1024).decode()
@@ -216,22 +246,106 @@ def login_client(client_socket, username, private_key):
         client_socket.send(password.encode())
         response = client_socket.recv(1024).decode()
         print(f"Server response: {response}")
-        return response == "Login successful!"
+        return "successful" in response
     except Exception as e:
         return False
 
 def send_message(client_socket, private_key, username):
+    """
+    Send a message to another client.
+    
+    :param client_socket: The active socket connection to the server.
+    :param private_key: The sender's private key.
+    :param username: The sender's username.
+    """
     client_socket.send("send_message".encode())
+
     response = client_socket.recv(1024).decode()
     if response != "message":
         print(f"Server response: {response}")
         return
+      
     to_client = input("Enter recipient's username: ")
+    while not to_client.strip():
+        to_client = input("recipient's usernam cannot be empty.\nPlease enter your recipient's username: ")
+
     message = input("Enter your message: ")
+    while not message.strip():
+        message = input("Message cannot be empty.\nPlease enter your message: ")
+
     recipient_public_key = request_public_key(client_socket, to_client)
+    if not recipient_public_key or recipient_public_key == "Recipient not found!":
+        print("Failed to get recipient's public key.")
+        return
+
     encrypted_message = encrypt_message(recipient_public_key, message)
     signature = signed_message(private_key, encrypted_message)
-    client_socket.sendall(json.dumps({'from_client': username, 'to_client': to_client, 'encrypted_message': encrypted_message, 'signature': signature}).encode())
+
+    message_data = {
+        'from_client': username,
+        'to_client': to_client,
+        'encrypted_message': encrypted_message,
+        'signature': signature
+    }
+    print(f"Sending message to {to_client}...")
+    client_socket.sendall(json.dumps(message_data).encode())
+
+def receive_messages(client_socket, private_key, stop_event):
+    """
+    Continuously listen for incoming messages from the server.
+    
+    :param client_socket: The active socket connection to the server.
+    :param private_key: The user's private key for decrypting messages.
+    :param stop_event: Threading event to signal when to stop the thread.
+    """
+    client_socket.settimeout(10.0)
+    
+    while not stop_event.is_set():
+        try:
+            data = client_socket.recv(4096)
+            if not data:
+                print("Server disconnected.")
+                break
+            
+            data_str = data.decode()
+            
+            if any(x in data_str for x in ["successful", "forwarded", "not found", "not online"]):
+                continue
+
+            if "-----BEGIN PUBLIC KEY-----" in data_str:
+                sender_public_key = data_str
+                message_data = json.loads(client_socket.recv(4096).decode())
+                
+                if all(k in message_data for k in ["from_client", "encrypted_message", "signature"]):
+                    from_client = message_data['from_client']
+                    encrypted_message = message_data['encrypted_message']
+                    signature = message_data['signature']
+                    
+                    try:
+                        public_key = serialization.load_pem_public_key(sender_public_key.encode(), backend=default_backend())
+                        public_key.verify(
+                            bytes.fromhex(signature),
+                            encrypted_message.encode(),
+                            padding.PKCS1v15(),
+                            hashes.SHA256()
+                        )
+                        print("\nSender's signature verified.")
+                    except Exception as e:
+                        print(f"\nError: Invalid signature from {from_client}")
+                        continue
+                    
+                    decrypted_message = decrypt_message(private_key, encrypted_message)
+                    if decrypted_message:
+                        print(f"[Message from {from_client}]: {decrypted_message}")
+                        print("\nOptions: [1] Send Message [2] Exit")
+                    else:
+                        print(f"\nError: Could not decrypt message from {from_client}")
+                continue
+        except socket.timeout:
+            continue
+        except Exception as e:
+            print(f"\nError receiving message: {e}")
+            break
 
 def main():
     """
@@ -265,18 +379,13 @@ def main():
         client_socket.close()
         return
     
+    stop_event = threading.Event()
+    
+    receive_thread = threading.Thread(target=receive_messages, args=(client_socket, private_key, stop_event))
+    receive_thread.daemon = True
+    receive_thread.start()
+    
     while True:
-
-        # TODO: make user can receiving messages from other user
-        # if you use thread the other code MAY BE disrupted
-        # the receive data should include
-        # - sender's username
-        # - encrypted message
-        # - signature
-        # you have to request the public key of the server from request_public_key() to validate the signature
-        # then decrypt the message using your private key
-        # then print the message to the user
-
         print("\nOptions: [1] Send Message [2] Exit")
         choice = None
         while choice not in ['1', '2']:

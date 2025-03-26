@@ -34,7 +34,6 @@ client_otp = {}  # Store OTP for each client
 client_sockets = {}  # Store client sockets
 challenges = {}
 
-
 #Initialize the SQLite database and create the users table.
 def init_db():
     with sqlite3.connect("user_data.db") as conn:
@@ -235,9 +234,6 @@ def verify_otp(username, otp):
         return True
     return False
 
-# TODO: If user register with same username ask user to change username
-# TODO: password must reach minimum requirement for security like minimum character, special character, number etc
-#       if password is not secure enough ask user to change password
 def handle_registration(client_socket):
     """
         Handle the registration process of a new client.
@@ -268,6 +264,10 @@ def handle_registration(client_socket):
         client_socket.send("Invalid password! Please enter a stronger password.".encode())
         return
 
+    if username in clients:
+        client_socket.send("Username already exists!".encode())
+        return
+
     # Generate OTP and send to client's email
     if not IS_BY_PASS_OTP:
         otp = generate_otp()
@@ -293,12 +293,12 @@ def handle_registration(client_socket):
         print(f"Client {username} registered successfully.")
         client_socket.send("Registration successful!".encode())
 
+    client_sockets[username] = client_socket
+    print(f"Client {username} registered. Active clients: {list(client_sockets.keys())}")
 
 def handle_login(client_socket):
     """
-        Handle the login process of a client.
-        
-        :param client_socket: The socket object used to communicate with the client.
+    Handle the login process of a client.
     """
     client_socket.send("login".encode())
     data = client_socket.recv(1024).decode()
@@ -349,6 +349,9 @@ def handle_login(client_socket):
         return
     client_socket.send("Login successful!".encode())
 
+    client_sockets[username] = client_socket
+    print(f"Client {username} logged in. Active clients: {list(client_sockets.keys())}")
+
 def get_public_key(username):
     """
         Retrieve the public key of a client based on their username.
@@ -360,7 +363,7 @@ def get_public_key(username):
         return clients[username]["public_key"]
     return None
 
-def recv_all(client_socket, buffer_size=1024):
+def recv_all(client_socket, buffer_size=4096):
     """
         Receive all data from the client socket until no more data is available.
         
@@ -378,29 +381,65 @@ def recv_all(client_socket, buffer_size=1024):
 
 def handle_message(client_socket):
     """
-        Handle the sending of a message from one client to another.
-        
-        :param client_socket: The socket object used to communicate with the client.
+    Handle the sending of a message from one client to another.
     """
-    client_socket.send("message".encode())
-    to_client = client_socket.recv(1024).decode()
-    print(f"Message to: {to_client}")
-    client_socket.send(get_public_key(to_client).encode())
 
-    # Wait for message data from client
-    print("Waiting for message data...")
-    data = recv_all(client_socket)
-    message_data = json.loads(data)
-    print(f"Message data: {message_data}")
+    try:
+        to_client = client_socket.recv(1024).decode()
+        print(f"Message to: {to_client}")
+        
+        recipient_public_key = get_public_key(to_client)
+        if not recipient_public_key:
+            client_socket.send("Recipient not found!".encode())
+            return
+            
+        client_socket.send(recipient_public_key.encode())
+        time.sleep(0.5)
 
-    from_client = message_data['from_client']
-    to_client = message_data['to_client']
-    encrypted_message = message_data['encrypted_message']
-    signature = message_data['signature']
+        # Wait for message data from client
+        print("Waiting for message data...")
+        data = recv_all(client_socket)
+        message_data = json.loads(data)
+        print(f"Message data received from {message_data['from_client']} to {message_data['to_client']}")
 
-    client_socket.send("Message received!".encode())
+        from_client = message_data['from_client']
+        to_client = message_data['to_client']
+        encrypted_message = message_data['encrypted_message']
+        signature = message_data['signature']
 
-    # TODO: send message & signed message & sender's username to recipient
+        public_key = serialization.load_pem_public_key(clients[from_client]["public_key"].encode(), backend=default_backend())
+        try:
+            public_key.verify(
+                bytes.fromhex(signature),
+                encrypted_message.encode(),
+                padding.PKCS1v15(),
+                hashes.SHA256()
+            )
+            print("Signature verified.")
+        except Exception as e:
+            print(f"Invalid signature: {e}")
+            client_socket.send("Invalid signature!".encode())
+            return
+
+        if to_client in client_sockets:
+            recipient_socket = client_sockets[to_client]
+            print(f"Forwarding message to {to_client}")
+            try:
+                sender_public_key = clients[from_client]["public_key"]
+                recipient_socket.sendall(sender_public_key.encode())
+                time.sleep(0.1)
+                recipient_socket.sendall(json.dumps(message_data).encode())
+                print(f"Message successfully sent to {to_client}")
+                client_socket.send("Message forwarded!".encode())
+            except Exception as e:
+                print(f"Error forwarding message: {e}")
+                client_socket.send("Error forwarding message!".encode())
+        else:
+            print(f"Recipient {to_client} not online")
+            client_socket.send("Recipient not online!".encode())
+    except Exception as e:
+        print(f"Error in handle_message: {e}")
+        client_socket.send("Error processing message!".encode())
 
 def handle_client(client_socket):
     """
@@ -450,17 +489,24 @@ def start_server():
         raise ValueError("Invalid OTP_SECRET_KEY. Please check your .env file or regenerate the key.")
     
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server.bind(('0.0.0.0', 5555))
     server.listen(5)
 
     print("Server started, waiting for clients...")
-    while True:
-        client_socket, client_address = server.accept()
-        print(f"New connection from {client_address}")
-        
-        # Handle each client in a separate thread
-        client_thread = threading.Thread(target=handle_client, args=(client_socket,))
-        client_thread.start()
+    try:
+        while True:
+            client_socket, client_address = server.accept()
+            print(f"New connection from {client_address}")
+            
+            # Handle each client in a separate thread
+            client_thread = threading.Thread(target=handle_client, args=(client_socket,))
+            client_thread.daemon = True
+            client_thread.start()
+    except KeyboardInterrupt:
+        print("Server shutting down...")
+    finally:
+        server.close()
 
 if __name__ == "__main__":
     init_db()
