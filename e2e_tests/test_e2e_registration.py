@@ -32,6 +32,17 @@ def test_registration_success_with_email(start_server, client_socket):
     response = client_socket.recv(1024).decode()
     assert response == "registration", "Server did not send 'registration' as expected"
     
+    # Generate an RSA key pair for the user
+    private_key = rsa.generate_private_key(
+        public_exponent=65537,
+        key_size=2048,
+    )
+    public_key = private_key.public_key()
+    public_key_pem = public_key.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo
+    ).decode('utf-8')
+    
     username = "test_user1"
     email = "test_user1@example.com"
     password = "SecurePass123!"
@@ -72,6 +83,17 @@ def test_registration_fail_invalid_otp(start_server, client_socket):
     response = client_socket.recv(1024).decode()
     assert response == "registration", "Server did not send 'registration' as expected"
     
+    # Generate an RSA key pair for the user
+    private_key = rsa.generate_private_key(
+        public_exponent=65537,
+        key_size=2048,
+    )
+    public_key = private_key.public_key()
+    public_key_pem = public_key.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo
+    ).decode('utf-8')
+    
     username = "test_user2"
     email = "test_user2@example.com"
     password = "SecurePass123!"
@@ -106,6 +128,17 @@ def test_registration_fail_duplicate_email(start_server, client_socket):
     # รอข้อความ "registration" จากเซิร์ฟเวอร์
     response = client_socket.recv(1024).decode()
     assert response == "registration", "Server did not send 'registration' as expected"
+    
+    # Generate an RSA key pair for the user
+    private_key = rsa.generate_private_key(
+        public_exponent=65537,
+        key_size=2048,
+    )
+    public_key = private_key.public_key()
+    public_key_pem = public_key.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo
+    ).decode('utf-8')
     
     username = "test_user3"
     email = "test_user1@example.com" # Duplicate email
@@ -144,6 +177,17 @@ def test_registration_fail_duplicate_username(start_server, client_socket):
     # รอข้อความ "registration" จากเซิร์ฟเวอร์
     response = client_socket.recv(1024).decode()
     assert response == "registration", "Server did not send 'registration' as expected"
+    
+    # Generate an RSA key pair for the user
+    private_key = rsa.generate_private_key(
+        public_exponent=65537,
+        key_size=2048,
+    )
+    public_key = private_key.public_key()
+    public_key_pem = public_key.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo
+    ).decode('utf-8')
     
     username = "test_user1" # Duplicate username
     email = "test_user4@example.com"
@@ -184,11 +228,7 @@ def test_registration_fail_missing_data(start_server, client_socket):
     response = client_socket.recv(1024).decode()
     assert response == "registration", "Server did not send 'registration' as expected"
     
-    username = "test_user5"
-    password = "SecurePass123!"
-    public_key = generate_rsa_key_pair(username)
-    
-    # Simulated registration data
+    # Simulated registration data missing the `email` field
     registration_data = {
         "username": username,
         "password": password,
