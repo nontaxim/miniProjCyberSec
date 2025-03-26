@@ -27,14 +27,12 @@ secret_key = os.environ.get("OTP_SECRET_KEY")
 salt = base64.b64decode(os.environ.get("SALT"))
 
 IS_BY_PASS_OTP = False
-IS_BY_PASS_OTP = False
 
 # Dictionaries to store client details, OTP, sockets, and challenges
 clients = {}  # Store clients' details (username -> public_key)
 client_otp = {}  # Store OTP for each client
 client_sockets = {}  # Store client sockets
 challenges = {}
-
 
 #Initialize the SQLite database and create the users table.
 def init_db():
