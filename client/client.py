@@ -347,6 +347,10 @@ def receive_messages(client_socket, private_key, stop_event):
             print(f"\nError receiving message: {e}")
             break
 
+def stop_receive_thread(receive_thread, stop_event):
+    stop_event.set()
+    receive_thread.join()
+
 def main():
     """
     Main function to start the client, handle registration/login, and send messages.
@@ -397,6 +401,7 @@ def main():
             break
         elif choice == '1':
             send_message(client_socket, private_key, username)
+    stop_receive_thread(receive_thread, stop_event)
     client_socket.close()
 
 if __name__ == "__main__":
