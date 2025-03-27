@@ -383,7 +383,7 @@ def handle_message(client_socket):
     """
     Handle the sending of a message from one client to another.
     """
-
+    client_socket.send("message".encode())
     try:
         to_client = client_socket.recv(1024).decode()
         print(f"Message to: {to_client}")
