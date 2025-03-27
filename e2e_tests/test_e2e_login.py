@@ -5,7 +5,7 @@ import subprocess
 import time
 import os
 import signal
-from conftest import generate_rsa_key_pair, get_otp_from_email , signed_message , load_private_key
+from e2e_test_utils import generate_rsa_key_pair, get_otp_from_email , signed_message , load_private_key
 from cryptography.hazmat.primitives.asymmetric import rsa
 # ============================================
 # Pytest Test Cases for E2E Login
@@ -16,6 +16,16 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 # Steps:
 # - Register a new user.
 # - Choose Exit to leave the system.
+# - Log in with the same credentials.
+# - Verify that the login is successful.
+
+# 2. Login After Restart Server
+# Objective: Verify that a user can log in after restarting the server.
+# Steps:
+# Before the test:
+#   - Register a new user. (Can use testcase 1)
+# During the test:
+# - Restart the server. (For each test case, the server is started and stopped)
 # - Log in with the same credentials.
 # - Verify that the login is successful.
 
@@ -89,7 +99,6 @@ def test_login_after_register_and_exit(start_server, client_socket):
     
     challenge = client_socket.recv(1024).decode()
     private_key = load_private_key(username)
-    print("Private Key!!!!!!!!!!!!!",private_key)
     signed_challenge = signed_message(private_key, challenge)
     client_socket.send(signed_challenge.encode())
     
@@ -101,6 +110,34 @@ def test_login_after_register_and_exit(start_server, client_socket):
     response = client_socket.recv(1024).decode()
     assert response == "Login successful!", "Login failed unexpectedly"
     
+def test_login_after_restart_server(start_server, client_socket):
+    """Test login after restarting the server."""
+    # Step 1: Restart the server (already started in the fixture)
+    
+    # Step 2: Login the same credentials
+    username = "test_user"
+    email = "test_user@example.com"
+    password = "SecurePass123!"
+    
+    client_socket.send("login".encode())
+    response = client_socket.recv(1024).decode()
+    assert response == "login", "Server did not request to Login as expected"
+
+    # Send Username and Signature
+    client_socket.send(username.encode())
+    
+    challenge = client_socket.recv(1024).decode()
+    private_key = load_private_key(username)
+    signed_challenge = signed_message(private_key, challenge)
+    client_socket.send(signed_challenge.encode())
+    
+    signed_response = client_socket.recv(1024).decode()
+    assert signed_response == "valid signature!", "Invalid signature"
+
+    # Send Password
+    client_socket.send(password.encode())
+    response = client_socket.recv(1024).decode()
+    assert response == "Login successful!", "Login failed unexpectedly"
 
 def test_login_fail_incorrect_password(start_server, client_socket):
     """Test login failure when the password is incorrect."""

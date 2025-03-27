@@ -2,7 +2,7 @@ import json
 import sys
 import os
 import pytest
-from conftest import generate_rsa_key_pair , get_otp_from_email
+from e2e_test_utils import generate_rsa_key_pair , get_otp_from_email
 
 # ============================================
 # Pytest Test Cases for E2E Registration
