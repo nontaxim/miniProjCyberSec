@@ -7,3 +7,4 @@ pytest-mock
 pytest-cov
 pytest-subprocess
 requests
+pytest-order

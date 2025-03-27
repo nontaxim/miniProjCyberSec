@@ -1,10 +1,8 @@
 import json
 import sys
 import os
-import requests
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives import serialization
-import base64
+import pytest
+from conftest import generate_rsa_key_pair , get_otp_from_email
 
 # ============================================
 # Pytest Test Cases for E2E Registration
@@ -22,24 +20,8 @@ import base64
 # 4. Registration Fails with Missing Data
 #    - Check that registration fails when required fields (e.g., username or email) are missing.
 
-
-def get_otp_from_email():
-    """Fetch OTP from the mock email server (MailHog) to simulate OTP verification during registration."""
-    # Retrieve all messages from MailHog
-    response = requests.get("http://localhost:8025/api/v2/messages")
-    messages = response.json()["items"]
-    for message in messages:
-        # Decode Base64 from the email body
-        encoded_body = message["Content"]["Body"]
-        decoded_body = base64.b64decode(encoded_body).decode("utf-8")
-        
-        # Search for OTP in the decoded message
-        if "Your OTP is:" in decoded_body:
-            otp = decoded_body.split(":")[1].strip()
-            return otp
-    return None
-
-
+pytestmark = [pytest.mark.registration, pytest.mark.order(1)] 
+@pytest.mark.order(1)
 def test_registration_success_with_email(start_server, client_socket):
     """Test End-to-End (E2E) successful registration with OTP sent via email."""
     print("-" * 50)
@@ -50,23 +32,17 @@ def test_registration_success_with_email(start_server, client_socket):
     response = client_socket.recv(1024).decode()
     assert response == "registration", "Server did not send 'registration' as expected"
     
-    # Generate an RSA key pair for the user
-    private_key = rsa.generate_private_key(
-        public_exponent=65537,
-        key_size=2048,
-    )
-    public_key = private_key.public_key()
-    public_key_pem = public_key.public_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PublicFormat.SubjectPublicKeyInfo
-    ).decode('utf-8')
+    username = "test_user1"
+    email = "test_user1@example.com"
+    password = "SecurePass123!"
+    public_key = generate_rsa_key_pair(username)
     
     # Simulated registration data
     registration_data = {
-        "username": "test_user",
-        "email": "test_user@example.com",
-        "password": "SecurePass123!",
-        "public_key": public_key_pem,
+        "username": username,
+        "email": email,
+        "password": password,
+        "public_key": public_key,
     }
     # Send registration data to the server
     client_socket.send(json.dumps(registration_data).encode())
@@ -96,23 +72,17 @@ def test_registration_fail_invalid_otp(start_server, client_socket):
     response = client_socket.recv(1024).decode()
     assert response == "registration", "Server did not send 'registration' as expected"
     
-    # Generate an RSA key pair for the user
-    private_key = rsa.generate_private_key(
-        public_exponent=65537,
-        key_size=2048,
-    )
-    public_key = private_key.public_key()
-    public_key_pem = public_key.public_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PublicFormat.SubjectPublicKeyInfo
-    ).decode('utf-8')
+    username = "test_user2"
+    email = "test_user2@example.com"
+    password = "SecurePass123!"
+    public_key = generate_rsa_key_pair(username)
     
     # Simulated registration data
     registration_data = {
-        "username": "test_user2",
-        "email": "test_user@example.com",
-        "password": "SecurePass123!",
-        "public_key": public_key_pem,
+        "username": username,
+        "email": email,
+        "password": password,
+        "public_key": public_key,
     }
     client_socket.send(json.dumps(registration_data).encode())
 
@@ -137,23 +107,17 @@ def test_registration_fail_duplicate_email(start_server, client_socket):
     response = client_socket.recv(1024).decode()
     assert response == "registration", "Server did not send 'registration' as expected"
     
-    # Generate an RSA key pair for the user
-    private_key = rsa.generate_private_key(
-        public_exponent=65537,
-        key_size=2048,
-    )
-    public_key = private_key.public_key()
-    public_key_pem = public_key.public_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PublicFormat.SubjectPublicKeyInfo
-    ).decode('utf-8')
+    username = "test_user3"
+    email = "test_user1@example.com" # Duplicate email
+    password = "SecurePass123!"
+    public_key = generate_rsa_key_pair(username)
     
-    # Simulated registration data with a duplicate email
+    # Simulated registration data
     registration_data = {
-        "username": "test_user3",
-        "email": "test_user@example.com",  # Duplicate email
-        "password": "SecurePass123!",
-        "public_key": public_key_pem,
+        "username": username,
+        "email": email,
+        "password": password,
+        "public_key": public_key,
     }
     client_socket.send(json.dumps(registration_data).encode())
     
@@ -181,23 +145,17 @@ def test_registration_fail_duplicate_username(start_server, client_socket):
     response = client_socket.recv(1024).decode()
     assert response == "registration", "Server did not send 'registration' as expected"
     
-    # Generate an RSA key pair for the user
-    private_key = rsa.generate_private_key(
-        public_exponent=65537,
-        key_size=2048,
-    )
-    public_key = private_key.public_key()
-    public_key_pem = public_key.public_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PublicFormat.SubjectPublicKeyInfo
-    ).decode('utf-8')
+    username = "test_user1" # Duplicate username
+    email = "test_user4@example.com"
+    password = "SecurePass123!"
+    public_key = generate_rsa_key_pair(username)
     
-    # Simulated registration data with a duplicate username
+    # Simulated registration data
     registration_data = {
-        "username": "test_user", # Duplicate username
-        "email": "test_user1@example.com", 
-        "password": "SecurePass123!",
-        "public_key": public_key_pem,
+        "username": username,
+        "email": email,
+        "password": password,
+        "public_key": public_key,
     }
     client_socket.send(json.dumps(registration_data).encode())
     
@@ -226,11 +184,15 @@ def test_registration_fail_missing_data(start_server, client_socket):
     response = client_socket.recv(1024).decode()
     assert response == "registration", "Server did not send 'registration' as expected"
     
-    # Simulated registration data missing the `email` field
+    username = "test_user5"
+    password = "SecurePass123!"
+    public_key = generate_rsa_key_pair(username)
+    
+    # Simulated registration data
     registration_data = {
-        "username": "test_user4",
-        "password": "SecurePass123!",
-        "public_key": "mocked_public_key",
+        "username": username,
+        "password": password,
+        "public_key": public_key,
     }
     client_socket.send(json.dumps(registration_data).encode())
 

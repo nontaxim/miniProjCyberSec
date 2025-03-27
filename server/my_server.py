@@ -34,9 +34,17 @@ client_otp = {}  # Store OTP for each client
 client_sockets = {}  # Store client sockets
 challenges = {}
 
+def get_database_path():
+    """Return the appropriate database path based on the APP_MODE."""
+    app_mode = os.environ.get("APP_MODE", "production").lower()
+    if app_mode == "e2e_test":
+        return os.path.join("e2e_tests", "test_user_data.db")  # Testing Database
+    return "user_data.db"  # Real Database
+
 #Initialize the SQLite database and create the users table.
 def init_db():
-    with sqlite3.connect("user_data.db") as conn:
+    db_path = get_database_path()
+    with sqlite3.connect(db_path) as conn:
         cursor = conn.cursor()
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
@@ -59,8 +67,9 @@ def hash_password(password, salt):
  #Add a new user securely to the database
 def add_user(username, email, password, public_key):
     print(username, email, password, public_key)
+    db_path = get_database_path()
     try:
-        with sqlite3.connect("user_data.db") as conn:
+        with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
             hashed_password = hash_password(password, salt)
             print(salt)
@@ -85,7 +94,8 @@ def get_users():
     """
     Retrieve all users from the database.
     """
-    with sqlite3.connect("user_data.db") as conn:
+    db_path = get_database_path()
+    with sqlite3.connect(db_path) as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT id, username, email FROM users")  # Exclude passwords for security
         users = cursor.fetchall()
@@ -97,7 +107,8 @@ def verify_user(username, password, salt):
     """
     Verify user's login credentials.
     """
-    with sqlite3.connect("user_data.db") as conn:
+    db_path = get_database_path()
+    with sqlite3.connect(db_path) as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT password FROM users WHERE username = ?", (username,))
         result = cursor.fetchone()
@@ -193,7 +204,7 @@ def send_otp_email(email, otp, client_socket):
         # Check the mode from environment variable
         app_mode = os.environ.get("APP_MODE", "production").lower()
 
-        if app_mode == "test":
+        if app_mode == "e2e_test":
             print(f"------APP_MODE: {app_mode}-------")
             print(f"using localhost SMTP for testing in port 1025")
             print(f"By Capturing the email using MailHog")
@@ -290,8 +301,8 @@ def handle_registration(client_socket):
             print(f"Error adding user: {error}")
             client_socket.send(error.encode())
             return
-        print(f"Client {username} registered successfully.")
         client_socket.send("Registration successful!".encode())
+        print(f"Client {username} registered successfully.")
 
     client_sockets[username] = client_socket
     print(f"Client {username} registered. Active clients: {list(client_sockets.keys())}")
@@ -311,7 +322,8 @@ def handle_login(client_socket):
     # Wait for the signed challenge message from the client
     signed_challenge = client_socket.recv(1024).decode()
 
-    with sqlite3.connect("user_data.db") as conn:
+    db_path = get_database_path()
+    with sqlite3.connect(db_path) as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT public_key FROM users WHERE username = ?", (username,))
         result = cursor.fetchone()
@@ -462,6 +474,7 @@ def handle_client(client_socket):
                 print("Handling message...")
                 handle_message(client_socket)
             elif data == "exit":
+                client_socket.send("Goodbye!".encode())
                 print("Client requested to exit.")
                 break  # Exit loop
         except Exception as e:
@@ -488,6 +501,22 @@ def start_server():
     if not validate_secret_key(secret_key):
         raise ValueError("Invalid OTP_SECRET_KEY. Please check your .env file or regenerate the key.")
     
+    print("Starting server...")
+    try:
+        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server.bind(('0.0.0.0', 5555))
+        server.listen(5)
+        print("Server started successfully and listening on port 5555.")
+    except Exception as e:
+        print(f"Error starting server: {e}")
+        raise
+    while True:
+        client_socket, client_address = server.accept()
+        print(f"New connection from {client_address}")
+        
+        # Handle each client in a separate thread
+        client_thread = threading.Thread(target=handle_client, args=(client_socket,))
+        client_thread.start()
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server.bind(('0.0.0.0', 5555))
