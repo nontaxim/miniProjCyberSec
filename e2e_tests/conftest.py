@@ -51,11 +51,13 @@ def cleanup_pem_files():
     """Remove all .pem files in the temp_keys folder after the module is completed."""
     yield
     temp_keys_folder = os.path.join("e2e_tests", "temp_keys")
-    for file in os.listdir(temp_keys_folder):
-        if file.endswith(".pem"):
-            os.remove(os.path.join(temp_keys_folder, file))
-    print("Removed all .pem files in the temp_keys folder.")
-            
+    if os.path.exists(temp_keys_folder):
+        for file in os.listdir(temp_keys_folder):
+            if file.endswith(".pem"):
+                os.remove(os.path.join(temp_keys_folder, file))
+        print("Removed all .pem files in the temp_keys folder.")
+    else:
+        print(f"Directory '{temp_keys_folder}' does not exist. Skipping cleanup.")
 @pytest.fixture(scope="function")
 def start_server():
     """Start the server in a subprocess for each test case."""
