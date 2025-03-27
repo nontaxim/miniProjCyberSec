@@ -5,7 +5,9 @@ import pyotp
 import base64
 import smtplib
 import sqlite3
-import hashlib
+import argon2
+from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError
 from email.mime.text import MIMEText
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
@@ -26,7 +28,7 @@ sender_password = os.environ.get("SENDER_PASSWORD")
 secret_key = os.environ.get("OTP_SECRET_KEY")
 salt = base64.b64decode(os.environ.get("SALT"))
 
-IS_BY_PASS_OTP = False
+IS_BY_PASS_OTP = True
 
 # Dictionaries to store client details, OTP, sockets, and challenges
 clients = {}  # Store clients' details (username -> public_key)
@@ -36,7 +38,8 @@ challenges = {}
 
 #Initialize the SQLite database and create the users table.
 def init_db():
-    with sqlite3.connect("user_data.db") as conn:
+    conn = sqlite3.connect("user_data.db")
+    try:
         cursor = conn.cursor()
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
@@ -48,21 +51,35 @@ def init_db():
         );
         """)
         conn.commit()
+    finally:
+        conn.close()
 
-#Securely hash a password with PBKDF2 and return salt + hash.
-def hash_password(password, salt):
-    if salt is None:
-        salt = os.urandom(16)  # Generate new salt
-    hashed_password = hashlib.pbkdf2_hmac('sha256', password.encode(), salt, 100000)
-    return salt + hashed_password  # Store salt + hash together
+# Initialize Argon2 hasher
+argon2_hasher = PasswordHasher(time_cost=3,memory_cost=65536, parallelism=4)
 
- #Add a new user securely to the database
+# Verify a password against its stored Argon2 hash
+def hash_pass(password):
+    return argon2_hasher.hash(password)
+
 def add_user(username, email, password, public_key):
+    """
+    Add a new user securely to the database
+    """
+    hashed_password = hash_pass(password)  # Hash the password using Argon2
+    conn = sqlite3.connect("user_data.db")
+    try:
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO users (username, email, password, public_key) VALUES (?, ?, ?, ?)", 
+                       (username, email, hashed_password, public_key))
+        conn.commit()
+        print(f"User {username} added successfully!")
+    except sqlite3.IntegrityError:
+        print(f"Error: A user with email {email} or username {username} already exists.")
     print(username, email, password, public_key)
     try:
         with sqlite3.connect("user_data.db") as conn:
             cursor = conn.cursor()
-            hashed_password = hash_password(password, salt)
+            hashed_password = hash_pass(password)
             print(salt)
             # Check if email or username already exists
             cursor.execute("SELECT username, email FROM users WHERE username = ? OR email = ?", (username, email))
@@ -77,38 +94,33 @@ def add_user(username, email, password, public_key):
                            (username, email, hashed_password, public_key))
             conn.commit()
             print(f"User {username} added successfully!")
+    except sqlite3.IntegrityError:
+        print(f"Error: A user with email {email} or username {username} already exists.")
     except Exception as e:
         print(f"Error adding user: {e}")
         return "error"
-
-def get_users():
-    """
-    Retrieve all users from the database.
-    """
-    with sqlite3.connect("user_data.db") as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT id, username, email FROM users")  # Exclude passwords for security
-        users = cursor.fetchall()
-    print("\nAll Users:")
-    for user in users:
-        print(user)
+    finally:
+        conn.close()
 
 def verify_user(username, password, salt):
     """
-    Verify user's login credentials.
+    Verify a password against its stored Argon2 hash
     """
-    with sqlite3.connect("user_data.db") as conn:
+    conn = sqlite3.connect("user_data.db")
+    try:
         cursor = conn.cursor()
-        cursor.execute("SELECT password FROM users WHERE username = ?", (username,))
-        result = cursor.fetchone()
+        cursor.execute("SELECT password FROM users WHERE username = ?", (username,)) #verify password
+        result = cursor.fetchone() #fetch the password
 
-    if result:
-        stored_password = result[0]
-        # CHECK**************** 
-        # salt = stored_password[:16]  # Extract salt
-        hashed_attempt = hash_password(password, salt)
-        return hashed_attempt == stored_password
-    return False
+        if result:
+            stored_hash = result[0] #get the stored password hash
+            try:
+                return argon2_hasher.verify(stored_hash, password) #verify the password
+            except VerifyMismatchError: #if password does not match
+                return False
+        return False
+    finally:
+        conn.close()
   
 def generate_challenge(username):
     """
@@ -301,53 +313,65 @@ def handle_login(client_socket):
     Handle the login process of a client.
     """
     client_socket.send("login".encode())
-    data = client_socket.recv(1024).decode()
-    username = data
+    try:
+        # Receive username
+        username = client_socket.recv(1024).decode()
+        print(f"Login attempt from: {username}")
 
-    # Server sends a challenge
-    challenge = generate_challenge(username)
-    client_socket.send(challenge.encode())
-
-    # Wait for the signed challenge message from the client
-    signed_challenge = client_socket.recv(1024).decode()
-
-    with sqlite3.connect("user_data.db") as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT public_key FROM users WHERE username = ?", (username,))
-        result = cursor.fetchone()
-
-    if result:
-    # if username in clients:
-        public_key = serialization.load_pem_public_key(result[0].encode(), backend=default_backend())
+        # Fetch stored user data from the database
+        conn = sqlite3.connect("user_data.db")
         try:
-            public_key.verify(
-                bytes.fromhex(signed_challenge),
-                challenge.encode(),
-                padding.PKCS1v15(),
-                hashes.SHA256()
-            )
-            client_socket.send("valid signature!".encode())
-        except Exception as e:
-            client_socket.send("Invalid signature!".encode())
-            client_socket.close()  # close the connection after sending the error
-            return
-    else:
-        client_socket.send("Client not registered!".encode())
-        client_socket.close()  # close the connection after sending the error
-        return
+            cursor = conn.cursor()
+            cursor.execute("SELECT password, public_key FROM users WHERE username = ?", (username,))
+            result = cursor.fetchone()
 
-    print(f"pass challenge for {username}")
+        finally:
+            conn.close()
 
-    # Wait for password input from client
-    print("Waiting for password...")
-    password = client_socket.recv(1024).decode()
-    print(f"Received password: {password}")
+        if result:
+            stored_password, public_key_pem = result #get the stored password and public key
 
-    if not verify_user(username, password, salt):
-        client_socket.send("Invalid password!".encode())
-        client_socket.close()
-        return
-    client_socket.send("Login successful!".encode())
+            # Server sends a challenge
+            challenge = os.urandom(32).hex()
+            client_socket.send(challenge.encode())
+            # Wait for signed challenge
+            signed_challenge = client_socket.recv(1024).decode()
+
+            try:
+                # Load the stored public key and verify the signed challenge
+                public_key = serialization.load_pem_public_key(public_key_pem.encode(), backend=default_backend())
+                
+                public_key.verify(
+                    bytes.fromhex(signed_challenge),
+                    challenge.encode(),
+                    padding.PKCS1v15(),
+                    hashes.SHA256()
+                )
+                client_socket.send("valid signature!".encode())
+            except Exception as e:
+                print(f"Invalid signature: {e}")
+                client_socket.send("Invalid signature!".encode())
+                return
+
+            print(f"Challenge passed for {username}")
+
+            # Wait for password input from the client
+            password = client_socket.recv(1024).decode()
+            print(f"Received password for {username}")
+
+            # Verify password using Argon2
+            if verify_user(username, password):
+                client_socket.send("Login successful!".encode())
+                print(f"User {username} logged in successfully.")
+                return
+
+            client_socket.send("Wrong password!".encode())
+        else:
+            client_socket.send("Client not registered!".encode())
+
+    except Exception as e:
+        print(f"Error handling login: {e}")
+        client_socket.send("An unexpected error occurred.".encode())
 
     client_sockets[username] = client_socket
     print(f"Client {username} logged in. Active clients: {list(client_sockets.keys())}")
