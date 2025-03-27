@@ -41,6 +41,7 @@ def init_db():
     conn = sqlite3.connect("user_data.db")
     try:
         cursor = conn.cursor()
+        print("Initializing database...")
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -51,6 +52,7 @@ def init_db():
         );
         """)
         conn.commit()
+        print("Database initialized successfully.")
     finally:
         conn.close()
 
@@ -60,49 +62,41 @@ argon2_hasher = PasswordHasher(time_cost=3,memory_cost=65536, parallelism=4)
 # Verify a password against its stored Argon2 hash
 def hash_pass(password):
     return argon2_hasher.hash(password)
-
 def add_user(username, email, password, public_key):
     """
-    Add a new user securely to the database
+    Add a new user securely to the database.
     """
     hashed_password = hash_pass(password)  # Hash the password using Argon2
     conn = sqlite3.connect("user_data.db")
     try:
         cursor = conn.cursor()
-        cursor.execute("INSERT INTO users (username, email, password, public_key) VALUES (?, ?, ?, ?)", 
-                       (username, email, hashed_password, public_key))
+        
+        # Check if email or username already exists
+        cursor.execute("SELECT username, email FROM users WHERE username = ? OR email = ?", (username, email))
+        existing_user = cursor.fetchone()
+        if existing_user:
+            if existing_user[0] == username:
+                return "This username already exists"
+            if existing_user[1] == email:
+                return "This email already exists"
+        
+        # Insert new user
+        cursor.execute(
+            "INSERT INTO users (username, email, password, public_key) VALUES (?, ?, ?, ?)",
+            (username, email, hashed_password, public_key)
+        )
         conn.commit()
         print(f"User {username} added successfully!")
+        return None  # No error
     except sqlite3.IntegrityError:
-        print(f"Error: A user with email {email} or username {username} already exists.")
-    print(username, email, password, public_key)
-    try:
-        with sqlite3.connect("user_data.db") as conn:
-            cursor = conn.cursor()
-            hashed_password = hash_pass(password)
-            print(salt)
-            # Check if email or username already exists
-            cursor.execute("SELECT username, email FROM users WHERE username = ? OR email = ?", (username, email))
-            existing_user = cursor.fetchone()
-            if existing_user:
-                if existing_user[0] == username:
-                    return "This username already exists"
-                if existing_user[1] == email:
-                    return "This email already exists"
-            # Insert new user
-            cursor.execute("INSERT INTO users (username, email, password, public_key) VALUES (?, ?, ?, ?)", 
-                           (username, email, hashed_password, public_key))
-            conn.commit()
-            print(f"User {username} added successfully!")
-    except sqlite3.IntegrityError:
-        print(f"Error: A user with email {email} or username {username} already exists.")
+        return "Error: A user with this email or username already exists."
     except Exception as e:
         print(f"Error adding user: {e}")
-        return "error"
+        return "An unexpected error occurred."
     finally:
         conn.close()
 
-def verify_user(username, password, salt):
+def verify_user(username, password):
     """
     Verify a password against its stored Argon2 hash
     """
