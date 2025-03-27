@@ -161,14 +161,15 @@ def register_client(client_socket, username):
         print(f"Server response: {response}")
         client_socket.close()
         return None, None
+    
+    while not username.strip():
+        username = input("Username cannot be empty.\nPlease enter your username: ")
+
     private_key, public_key = generate_RSA_key(username)
     public_key_pem = public_key.public_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PublicFormat.SubjectPublicKeyInfo
     ).decode('utf-8')
-    
-    while not username.strip():
-        username = input("Username cannot be empty.\nPlease enter your username: ")
 
     email = input("Enter your email: ")
     while not validate_email(email):
@@ -267,7 +268,7 @@ def send_message(client_socket, private_key, username):
       
     to_client = input("Enter recipient's username: ")
     while not to_client.strip():
-        to_client = input("recipient's usernam cannot be empty.\nPlease enter your recipient's username: ")
+        to_client = input("recipient's username cannot be empty.\nPlease enter your recipient's username: ")
 
     message = input("Enter your message: ")
     while not message.strip():
