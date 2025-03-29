@@ -2,6 +2,7 @@ import json
 import sys
 import os
 import pytest
+import time
 from e2e_test_utils import generate_rsa_key_pair , get_otp_from_email
 
 # ============================================
@@ -17,8 +18,15 @@ from e2e_test_utils import generate_rsa_key_pair , get_otp_from_email
 # 3. Registration Fails with Duplicate Email
 #    - Confirm that registration fails when using an email that already exists in the system.
 
-# 4. Registration Fails with Missing Data
+# 4. Registration Fails with Duplicate Username
+#    - Confirm that registration fails when using a username that already exists in the system.
+
+# 5. Registration Fails with Missing Data
 #    - Check that registration fails when required fields (e.g., username or email) are missing.
+
+# 6. Registration Fails with Expired OTP
+#    - Ensure that registration fails when the OTP has expired.
+
 
 pytestmark = [pytest.mark.registration, pytest.mark.order(1)] 
 @pytest.mark.order(1)
@@ -209,3 +217,45 @@ def test_registration_fail_missing_data(start_server, client_socket):
     # Verify the response indicates missing data error
     response = client_socket.recv(1024).decode()
     assert response == "Missing data", "Expected error for missing data"
+
+def test_registration_fail_expired_otp(start_server, client_socket):
+    """Test registration failure when OTP has expired."""
+    print("-" * 50)
+    client_socket.send("register".encode())
+    
+    # รอข้อความ "registration" จากเซิร์ฟเวอร์
+    response = client_socket.recv(1024).decode()
+    assert response == "registration", "Server did not send 'registration' as expected"
+    
+    username = "test_user6"
+    email = "test_user6@example.com"
+    password = "SecurePass123!"
+    public_key = generate_rsa_key_pair(username)
+    
+    # Simulated registration data
+    registration_data = {
+        "username": username,
+        "email": email,
+        "password": password,
+        "public_key": public_key,
+    }
+    client_socket.send(json.dumps(registration_data).encode())
+    
+    # Wait for the server to request OTP
+    response = client_socket.recv(1024).decode()
+    assert response == "Please enter OTP", "Server did not request OTP as expected"
+
+    # Fetch OTP from the mock email server
+    otp = get_otp_from_email()
+    assert otp is not None, "OTP not found in email"
+
+    # Simulate OTP expiration by waiting for the time limit to pass
+    time.sleep(5)  # Assuming the OTP expires in 5 s in test environment
+    time.sleep(2) # Wait for a second to ensure OTP is expired
+
+    # Send OTP back to the server
+    client_socket.send(otp.encode())
+    
+    # Verify the response indicates OTP expiration
+    response = client_socket.recv(1024).decode()
+    assert response == "Invalid OTP!", "Expected error for expired OTP"

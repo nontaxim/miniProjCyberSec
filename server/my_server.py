@@ -266,11 +266,16 @@ def verify_otp(username, otp):
     if IS_BY_PASS_OTP:
         return True
     
+    if app_mode == "e2e_test":
+        expired_otp_time = 5  # 5 seconds for testing
+    else:
+        expired_otp_time = 300 # OTP expires after 5 minutes (300 seconds)
+    
     if username in client_otp:
         stored_otp = client_otp[username]
         if isinstance(stored_otp, tuple):  # Check if stored_otp is a tuple
             otp_value, timestamp = stored_otp
-            if time.time() - timestamp > 300:  # OTP expires after 5 minutes (300 seconds)
+            if time.time() - timestamp > expired_otp_time:  
                 print("OTP has expired.")
                 del client_otp[username]  # Remove expired OTP
                 return False
