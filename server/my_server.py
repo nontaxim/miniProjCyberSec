@@ -335,7 +335,6 @@ def handle_registration(client_socket):
         client_socket.send("Registration successful!".encode())
         print(f"Client {username} registered successfully.")
 
-    clients[username] = {"public_key": public_key}
     client_sockets[username] = client_socket
     print(f"Client {username} registered. Active clients: {list(client_sockets.keys())}")
 
@@ -586,25 +585,14 @@ def start_server():
     print("Starting server...")
     try:
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         server.bind(('0.0.0.0', 5555))
         server.listen(5)
         print("Server started successfully and listening on port 5555.")
     except Exception as e:
         print(f"Error starting server: {e}")
         raise
-    while True:
-        client_socket, client_address = server.accept()
-        print(f"New connection from {client_address}")
-        
-        # Handle each client in a separate thread
-        client_thread = threading.Thread(target=handle_client, args=(client_socket,))
-        client_thread.start()
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server.bind(('0.0.0.0', 5555))
-    server.listen(5)
 
-    print("Server started, waiting for clients...")
     try:
         while True:
             client_socket, client_address = server.accept()
@@ -618,7 +606,7 @@ def start_server():
         print("Server shutting down...")
     finally:
         server.close()
-
+        
 if __name__ == "__main__":
     init_db()
     start_server()
