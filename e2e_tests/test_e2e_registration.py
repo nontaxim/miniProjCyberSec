@@ -2,7 +2,7 @@ import json
 import sys
 import os
 import pytest
-from conftest import generate_rsa_key_pair , get_otp_from_email
+from e2e_test_utils import generate_rsa_key_pair , get_otp_from_email
 
 # ============================================
 # Pytest Test Cases for E2E Registration
@@ -31,6 +31,11 @@ def test_registration_success_with_email(start_server, client_socket):
     # รอข้อความ "registration" จากเซิร์ฟเวอร์
     response = client_socket.recv(1024).decode()
     assert response == "registration", "Server did not send 'registration' as expected"
+    
+    username = "test_user1"
+    email = "test_user1@example.com"
+    password = "SecurePass123!"
+    public_key = generate_rsa_key_pair(username)
     
     username = "test_user1"
     email = "test_user1@example.com"
@@ -71,6 +76,11 @@ def test_registration_fail_invalid_otp(start_server, client_socket):
     # รอข้อความ "registration" จากเซิร์ฟเวอร์
     response = client_socket.recv(1024).decode()
     assert response == "registration", "Server did not send 'registration' as expected"
+    
+    username = "test_user2"
+    email = "test_user2@example.com"
+    password = "SecurePass123!"
+    public_key = generate_rsa_key_pair(username)
     
     username = "test_user2"
     email = "test_user2@example.com"
