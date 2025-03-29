@@ -130,28 +130,6 @@ def add_user(username, email, password, public_key):
         return "Error: A user with this email or username already exists."
     except sqlite3.Error as e: # Handle SQLite errors
         handle_sqlite_error(e)
-    print(username, email, password, public_key)
-    db_path = get_database_path()
-    try:
-        with sqlite3.connect(db_path) as conn:
-            cursor = conn.cursor()
-            hashed_password = hash_password(password, salt)
-            print(salt)
-            # Check if email or username already exists
-            cursor.execute("SELECT username, email FROM users WHERE username = ? OR email = ?", (username, email))
-            existing_user = cursor.fetchone()
-            if existing_user:
-                if existing_user[0] == username:
-                    return "This username already exists"
-                if existing_user[1] == email:
-                    return "This email already exists"
-            # Insert new user
-            cursor.execute("INSERT INTO users (username, email, password, public_key) VALUES (?, ?, ?, ?)", 
-                           (username, email, hashed_password, public_key))
-            conn.commit()
-            print(f"User {username} added successfully!")
-    except Exception as e:
-        print(f"Error adding user: {e}")
         return "An unexpected error occurred."
     finally:
         if conn:
