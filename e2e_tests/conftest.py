@@ -15,7 +15,7 @@ def set_test_mode():
 @pytest.fixture(scope="module", autouse=True)
 def reset_database():
     """Reset the database before each test module."""
-    db_path = os.path.join("e2e_tests", "test_user_data.db")  # ใช้ฐานข้อมูลสำหรับการทดสอบ
+    db_path = os.path.join("e2e_tests", "test_user_data.db")  # Use a test database
     if os.path.exists(db_path):
         print("Resetting database for module...")
         with sqlite3.connect(db_path) as conn:
@@ -30,8 +30,8 @@ def reset_database():
 @pytest.fixture(scope="session", autouse=True)
 def cleanup_database():
     """Remove the test database file after all tests are completed."""
-    yield  # รอให้การทดสอบทั้งหมดเสร็จสิ้น
-    db_path = os.path.join("e2e_tests", "test_user_data.db")  # ใช้ฐานข้อมูลสำหรับการทดสอบ
+    yield  # Wait for all tests to complete
+    db_path = os.path.join("e2e_tests", "test_user_data.db")  # Use a test database
     if os.path.exists(db_path):
         print(f"Removing database file '{db_path}'...")
         os.remove(db_path)

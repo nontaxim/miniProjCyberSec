@@ -6,15 +6,15 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from e2e_test_utils import generate_rsa_key_pair, get_otp_from_email , signed_message , load_private_key , encrypt_message , register_user, decrypt_message , login_user
 
 # ============================================
-# Pytest Test Cases for E2E Send Message
+# E2E Testing: Send and Receive Messages
 # ============================================
 
-# เป้าหมายของการทดสอบ
-# ทดสอบว่าผู้ใช้สามารถส่งข้อความไปยังผู้รับได้สำเร็จ
-# ทดสอบว่าผู้รับสามารถรับข้อความที่ถูกส่งมาได้
-# ทดสอบกรณีที่ผู้รับไม่ออนไลน์
-# ตรวจสอบว่าระบบปฏิเสธข้อความที่มีลายเซ็นไม่ถูกต้อง
-# ตรวจสอบว่าระบบส่งข้อความไปยังกรณีที่ผู้รับ (recipient) ไม่ได้ลงทะเบียนในระบบ
+# Test Objectives:
+# - Verify that a user can successfully send a message to a recipient.
+# - Ensure that the recipient can receive the message sent by the sender.
+# - Handle cases where the recipient is offline.
+# - Validate that the system rejects messages with invalid signatures.
+# - Confirm that the system handles cases where the recipient is not registered.
 
 pytestmark = [pytest.mark.send_received_message, pytest.mark.order(3)] 
 def test_send_message_success(start_server):
