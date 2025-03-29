@@ -37,7 +37,7 @@ def generate_RSA_key(username):
     public_key_path = f"{username}_public_key.pem"
 
     if os.path.exists(private_key_path) and os.path.exists(public_key_path):
-        print(f"username: {username} already exist.")
+        print(f"username: {username} already exists.")
         return None, None
 
     private_key = rsa.generate_private_key(
