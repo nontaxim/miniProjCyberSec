@@ -12,7 +12,7 @@ from cryptography.hazmat.primitives import hashes
       
 def generate_rsa_key_pair(username):
     """Generate an RSA key pair and save the private and public keys in the e2e_test2 folder."""
-    # สร้าง Private Key และ Public Key
+    # Generate Private Key and Public Key
     private_key = rsa.generate_private_key(
         public_exponent=65537,
         key_size=2048,
@@ -23,11 +23,11 @@ def generate_rsa_key_pair(username):
         format=serialization.PublicFormat.SubjectPublicKeyInfo
     ).decode('utf-8')
     
-    # สร้างโฟลเดอร์ e2e_test2 หากยังไม่มี
+    # Create e2e_test2 folder if it does not exist
     key_folder = os.path.join("e2e_tests", "temp_keys")
     os.makedirs(key_folder, exist_ok=True)
     
-    # บันทึก Private Key ลงในไฟล์ .pem
+    # Save Private Key to a .pem file
     private_key_path = os.path.join(key_folder, f"{username}_private_key.pem")
     with open(private_key_path, "wb") as private_key_file:
         private_key_file.write(private_key.private_bytes(
@@ -36,7 +36,7 @@ def generate_rsa_key_pair(username):
             encryption_algorithm=serialization.NoEncryption()
         ))
     
-    # บันทึก Public Key ลงในไฟล์ .pem
+    # Save Public Key to a .pem file
     public_key_path = os.path.join(key_folder, f"{username}_public_key.pem")
     with open(public_key_path, "wb") as public_key_file:
         public_key_file.write(public_key.public_bytes(

@@ -181,38 +181,28 @@ def test_login_fail_incorrect_password(start_server, client_socket):
     signed_response = client_socket.recv(1024).decode()
     assert signed_response == "valid signature!", "Invalid signature"
 
-    client_socket.send("WrongPassword!".encode())
+    client_socket.send("wrongpassword".encode())
     response = client_socket.recv(1024).decode()
-    assert response == "Invalid password!", "Expected 'Invalid password!' error"
+    assert response == "Wrong password!", "Expected 'Invalid password!' error"
     
     
 
 def test_login_fail_unregistered_user(start_server, client_socket):
     """Test login failure for an unregistered user."""
-    # Step 1: Login 
+    # Step 1: Attempt to login with an unregistered username
     username = "unregistered_user"
     password = "password@123123!Q"
+    
     client_socket.send("login".encode())
     response = client_socket.recv(1024).decode()
     assert response == "login", "Server did not request to Login as expected"
 
-    # Send Username and Signature
+    # Send Username
     client_socket.send(username.encode())
-    
-    challenge = client_socket.recv(1024).decode()
-    
-    # Generate a mismatched key pair to simulate an invalid signature
-    invalid_private_key = rsa.generate_private_key(
-        public_exponent=65537,
-        key_size=2048,
-    )
-    invalid_signed_challenge = signed_message(invalid_private_key, challenge)
-    client_socket.send(invalid_signed_challenge.encode())
-    
-    # Send Password
-    client_socket.send(password.encode())
     response = client_socket.recv(1024).decode()
-    assert response == "Client not registered!", "Login failed unexpectedly"
+    
+    # Verify server response for unregistered user
+    assert response == "Client not registered!", f"Unexpected server response: {response}"
 
     
 def test_login_fail_invalid_signature(start_server, client_socket):

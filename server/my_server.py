@@ -400,9 +400,10 @@ def get_public_key(username):
     :param username: The username of the user
     :return: The public key as a string or None if not found
     """
+    db_path = get_database_path()
     conn = None
     try:
-        conn = sqlite3.connect("user_data.db")
+        conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
         cursor.execute("SELECT public_key FROM users WHERE username = ?", (username,))
         result = cursor.fetchone()
@@ -528,6 +529,7 @@ def handle_client(client_socket):
                 break
             except Exception as e:
                 print(f"Error handling client: {e}")
+                client_socket.send("Missing data".encode())
                 break  # Stop loop on error
     finally:
         # Clean up the client socket and remove from client_sockets
