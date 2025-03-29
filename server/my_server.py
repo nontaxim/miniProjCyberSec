@@ -5,7 +5,9 @@ import pyotp
 import base64
 import smtplib
 import sqlite3
-import hashlib
+import argon2
+from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError
 from email.mime.text import MIMEText
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
@@ -26,10 +28,10 @@ sender_password = os.environ.get("SENDER_PASSWORD")
 secret_key = os.environ.get("OTP_SECRET_KEY")
 salt = base64.b64decode(os.environ.get("SALT"))
 
-IS_BY_PASS_OTP = False
+IS_BY_PASS_OTP = True
 
 # Dictionaries to store client details, OTP, sockets, and challenges
-clients = {}  # Store clients' details (username -> public_key)
+#clients = {}  # Store clients' details (username -> public_key)
 client_otp = {}  # Store OTP for each client
 client_sockets = {}  # Store client sockets
 challenges = {}
@@ -41,11 +43,37 @@ def get_database_path():
         return os.path.join("e2e_tests", "test_user_data.db")  # Testing Database
     return "user_data.db"  # Real Database
 
+def handle_sqlite_error(e):
+    """
+    Handle SQLite errors and provide detailed messages.
+    :param e: The exception object
+    """
+    if isinstance(e, sqlite3.OperationalError):
+        if "permission denied" in str(e).lower():
+            print("Permission error: Check the database file permissions.")
+        elif "disk I/O error" in str(e).lower():
+            print("Disk I/O error: Check the disk space and I/O status.")
+        else:
+            print(f"Operational error: {e}")
+    elif isinstance(e, sqlite3.IntegrityError):
+        print(f"Integrity error: {e}")
+    elif isinstance(e, sqlite3.ProgrammingError):
+        print(f"Programming error: {e}")
+    elif isinstance(e, sqlite3.DataError):
+        print(f"Data error: {e}")
+    elif isinstance(e, sqlite3.DatabaseError):
+        print(f"Database error: {e}")
+    else:
+        print(f"Unexpected SQLite error: {e}")
+
 #Initialize the SQLite database and create the users table.
 def init_db():
     db_path = get_database_path()
-    with sqlite3.connect(db_path) as conn:
+    conn = None
+    try:
+        conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
+        print("Initializing database...")
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -56,16 +84,52 @@ def init_db():
         );
         """)
         conn.commit()
+        print("Database initialized successfully.")
+    except sqlite3.Error as e: # Handle SQLite errors
+        handle_sqlite_error(e)
+    finally:
+        if conn:
+            conn.close()
 
-#Securely hash a password with PBKDF2 and return salt + hash.
-def hash_password(password, salt):
-    if salt is None:
-        salt = os.urandom(16)  # Generate new salt
-    hashed_password = hashlib.pbkdf2_hmac('sha256', password.encode(), salt, 100000)
-    return salt + hashed_password  # Store salt + hash together
+# Initialize Argon2 hasher
+argon2_hasher = PasswordHasher(time_cost=3,memory_cost=65536, parallelism=4)
 
- #Add a new user securely to the database
+# Verify a password against its stored Argon2 hash
+def hash_password(password):
+    return argon2_hasher.hash(password)
+
 def add_user(username, email, password, public_key):
+    """
+    Add a new user securely to the database.
+    """
+    db_path = get_database_path()
+    hashed_password = hash_password(password)  # Hash the password using Argon2
+    conn = None
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        
+        # Check if email or username already exists
+        cursor.execute("SELECT username, email FROM users WHERE username = ? OR email = ?", (username, email))
+        existing_user = cursor.fetchone()
+        if existing_user:
+            if existing_user[0] == username:
+                return "This username already exists"
+            if existing_user[1] == email:
+                return "This email already exists"
+
+        # Insert new user
+        cursor.execute(
+            "INSERT INTO users (username, email, password, public_key) VALUES (?, ?, ?, ?)",
+            (username, email, hashed_password, public_key)
+        )
+        conn.commit()
+        print(f"User {username} added successfully!")
+        return None  # No error
+    except sqlite3.IntegrityError:
+        return "Error: A user with this email or username already exists."
+    except sqlite3.Error as e: # Handle SQLite errors
+        handle_sqlite_error(e)
     print(username, email, password, public_key)
     db_path = get_database_path()
     try:
@@ -88,38 +152,10 @@ def add_user(username, email, password, public_key):
             print(f"User {username} added successfully!")
     except Exception as e:
         print(f"Error adding user: {e}")
-        return "error"
-
-def get_users():
-    """
-    Retrieve all users from the database.
-    """
-    db_path = get_database_path()
-    with sqlite3.connect(db_path) as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT id, username, email FROM users")  # Exclude passwords for security
-        users = cursor.fetchall()
-    print("\nAll Users:")
-    for user in users:
-        print(user)
-
-def verify_user(username, password, salt):
-    """
-    Verify user's login credentials.
-    """
-    db_path = get_database_path()
-    with sqlite3.connect(db_path) as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT password FROM users WHERE username = ?", (username,))
-        result = cursor.fetchone()
-
-    if result:
-        stored_password = result[0]
-        # CHECK**************** 
-        # salt = stored_password[:16]  # Extract salt
-        hashed_attempt = hash_password(password, salt)
-        return hashed_attempt == stored_password
-    return False
+        return "An unexpected error occurred."
+    finally:
+        if conn:
+            conn.close()
   
 def generate_challenge(username):
     """
@@ -275,10 +311,6 @@ def handle_registration(client_socket):
         client_socket.send("Invalid password! Please enter a stronger password.".encode())
         return
 
-    if username in clients:
-        client_socket.send("Username already exists!".encode())
-        return
-
     # Generate OTP and send to client's email
     if not IS_BY_PASS_OTP:
         otp = generate_otp()
@@ -295,7 +327,6 @@ def handle_registration(client_socket):
         client_socket.send("Invalid OTP!".encode())
         return
     else:
-        print("OTP verified! at 215")
         error = add_user(username, email, password, public_key)
         if error:
             print(f"Error adding user: {error}")
@@ -312,68 +343,100 @@ def handle_login(client_socket):
     Handle the login process of a client.
     """
     client_socket.send("login".encode())
-    data = client_socket.recv(1024).decode()
-    username = data
+    try:
+        # Receive username
+        username = client_socket.recv(1024).decode()
+        print(f"Login attempt from: {username}")
 
-    # Server sends a challenge
-    challenge = generate_challenge(username)
-    client_socket.send(challenge.encode())
-
-    # Wait for the signed challenge message from the client
-    signed_challenge = client_socket.recv(1024).decode()
-
-    db_path = get_database_path()
-    with sqlite3.connect(db_path) as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT public_key FROM users WHERE username = ?", (username,))
-        result = cursor.fetchone()
-
-    if result:
-    # if username in clients:
-        public_key = serialization.load_pem_public_key(result[0].encode(), backend=default_backend())
+        # Fetch stored user data from the database
+        db_path = get_database_path()
+        conn = None
         try:
-            public_key.verify(
-                bytes.fromhex(signed_challenge),
-                challenge.encode(),
-                padding.PKCS1v15(),
-                hashes.SHA256()
-            )
-            client_socket.send("valid signature!".encode())
-        except Exception as e:
-            client_socket.send("Invalid signature!".encode())
-            client_socket.close()  # close the connection after sending the error
-            return
-    else:
-        client_socket.send("Client not registered!".encode())
-        client_socket.close()  # close the connection after sending the error
-        return
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            cursor.execute("SELECT password, public_key FROM users WHERE username = ?", (username,))
+            result = cursor.fetchone()
+        except sqlite3.Error as e:  # Handle SQLite errors
+            handle_sqlite_error(e)
+        finally:
+            if conn:
+                conn.close()
 
-    print(f"pass challenge for {username}")
+        if result:
+            stored_password, public_key_pem = result #get the stored password and public key
 
-    # Wait for password input from client
-    print("Waiting for password...")
-    password = client_socket.recv(1024).decode()
-    print(f"Received password: {password}")
+            # Server sends a challenge
+            challenge = generate_challenge(username)
+            client_socket.send(challenge.encode())
+            # Wait for signed challenge
+            signed_challenge = client_socket.recv(1024).decode()
 
-    if not verify_user(username, password, salt):
-        client_socket.send("Invalid password!".encode())
-        client_socket.close()
-        return
-    client_socket.send("Login successful!".encode())
+            try:
+                # Load the stored public key and verify the signed challenge
+                public_key = serialization.load_pem_public_key(public_key_pem.encode(), backend=default_backend())
+                
+                public_key.verify(
+                    bytes.fromhex(signed_challenge),
+                    challenge.encode(),
+                    padding.PKCS1v15(),
+                    hashes.SHA256()
+                )
+                client_socket.send("valid signature!".encode())
+            except Exception as e:
+                print(f"Invalid signature: {e}")
+                client_socket.send("Invalid signature!".encode())
+                return
+
+            print(f"Challenge passed for {username}")
+
+            # Wait for password input from the client
+            password = client_socket.recv(1024).decode()
+            print(f"Received password for {username}")
+            
+            # Simplified Argon2 verification
+            try:
+                if argon2_hasher.verify(stored_password, password):
+                    client_socket.send("Login successful!".encode())
+                    client_sockets[username] = client_socket
+                    print(f"User {username} logged in successfully.")
+                    return
+            except VerifyMismatchError:
+                pass  # Will send "Wrong password!" below
+            except Exception as e:
+                print(f"Password verification error: {e}")
+            client_socket.send("Wrong password!".encode())
+        else:
+            client_socket.send("Client not registered!".encode())
+
+    except Exception as e:
+        print(f"Error handling login: {e}")
+        client_socket.send("An unexpected error occurred.".encode())
 
     client_sockets[username] = client_socket
     print(f"Client {username} logged in. Active clients: {list(client_sockets.keys())}")
 
 def get_public_key(username):
     """
-        Retrieve the public key of a client based on their username.
-        
-        :param username: The username of the client.
-        :return: The client's public key or None if not found.
+    Retrieve the public key of a user from the database.
+    
+    :param username: The username of the user
+    :return: The public key as a string or None if not found
     """
-    if username in clients:
-        return clients[username]["public_key"]
-    return None
+    conn = None
+    try:
+        conn = sqlite3.connect("user_data.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT public_key FROM users WHERE username = ?", (username,))
+        result = cursor.fetchone()
+        if result:
+            return result[0]
+        return None
+    except sqlite3.Error as e:
+        handle_sqlite_error(e)
+        return None
+    finally:
+        if conn:
+            conn.close()
 
 def recv_all(client_socket, buffer_size=4096):
     """
@@ -419,7 +482,7 @@ def handle_message(client_socket):
         encrypted_message = message_data['encrypted_message']
         signature = message_data['signature']
 
-        public_key = serialization.load_pem_public_key(clients[from_client]["public_key"].encode(), backend=default_backend())
+        public_key = serialization.load_pem_public_key(get_public_key(from_client).encode(), backend=default_backend())
         try:
             public_key.verify(
                 bytes.fromhex(signature),
@@ -437,7 +500,7 @@ def handle_message(client_socket):
             recipient_socket = client_sockets[to_client]
             print(f"Forwarding message to {to_client}")
             try:
-                sender_public_key = clients[from_client]["public_key"]
+                sender_public_key = get_public_key(from_client)
                 recipient_socket.sendall(sender_public_key.encode())
                 time.sleep(0.1)
                 recipient_socket.sendall(json.dumps(message_data).encode())
