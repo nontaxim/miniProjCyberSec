@@ -220,7 +220,7 @@ def send_otp_email(email, otp, client_socket):
     otp = otp.replace("\xa0", " ")
     # Create the email message
     
-    msg = MIMEText(f"Your OTP is: {otp}", "plain", "utf-8")
+    msg = MIMEText(f"Your OTP will expire in 5 minutes.\nYour OTP is: {otp}", "plain", "utf-8")
     msg["Subject"] = "Your OTP for Registration"
     msg["From"] = sender_email
     msg["To"] = email
@@ -263,8 +263,22 @@ def verify_otp(username, otp):
         :param otp: The OTP received from the client.
         :return: True if the OTP is valid, False otherwise.
     """
-    if IS_BY_PASS_OTP or client_otp.get(username) == otp:
+    if IS_BY_PASS_OTP:
         return True
+    
+    if username in client_otp:
+        stored_otp = client_otp[username]
+        if isinstance(stored_otp, tuple):  # Check if stored_otp is a tuple
+            otp_value, timestamp = stored_otp
+            if time.time() - timestamp > 300:  # OTP expires after 5 minutes (300 seconds)
+                print("OTP has expired.")
+                del client_otp[username]  # Remove expired OTP
+                return False
+            if otp_value == otp:
+                del client_otp[username]  # Remove OTP after successful use
+                return True
+        elif stored_otp == otp:  # Fallback case where stored_otp is a string
+            return True
     return False
 
 def handle_registration(client_socket):
@@ -306,7 +320,7 @@ def handle_registration(client_socket):
     if not IS_BY_PASS_OTP:
         otp = generate_otp()
         send_otp_email(email, otp, client_socket)
-        client_otp[username] = otp
+        client_otp[username] = (otp, time.time()) # Store OTP with timestamp
         print(f"Sent OTP to {email}")
 
     # Request OTP from client
