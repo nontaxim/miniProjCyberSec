@@ -143,6 +143,9 @@ def validate_password(password):
     if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
         print("Password must contain at least one special character (!@#$%^&*(),.?\":{}|<>).")
         return False
+    if " " in password:
+        print("Password must not contain spaces.")
+        return False
     return True
 
 def validate_email(email):
