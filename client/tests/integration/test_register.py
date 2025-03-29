@@ -103,9 +103,6 @@ def test_register_client_invalid_username(mocker):
         "password": "SecureP@ss123"
     }
 
-    # Debugging print to check what is actually sent
-    print(f"Sent registration data: {json.dumps(expected_registration_data)}")
-
     # Assert that the registration data was sent with the correct details
     mock_socket.send.assert_any_call(json.dumps(expected_registration_data).encode())
 
