@@ -108,7 +108,7 @@ def add_user(username, email, password, public_key):
                 return "This username already exists"
             if existing_user[1] == email:
                 return "This email already exists"
-        
+
         # Insert new user
         cursor.execute(
             "INSERT INTO users (username, email, password, public_key) VALUES (?, ?, ?, ?)",
@@ -127,30 +127,6 @@ def add_user(username, email, password, public_key):
     finally:
         if conn:
             conn.close()
-
-# def verify_user(username, password):
-#     """
-#     Verify a password against its stored Argon2 hash
-#     """
-#     conn = None
-#     try:
-#         conn = sqlite3.connect("user_data.db")
-#         cursor = conn.cursor()
-#         cursor.execute("SELECT password FROM users WHERE username = ?", (username,)) #verify password
-#         result = cursor.fetchone() #fetch the password
-
-#         if result:
-#             stored_hash = result[0] #get the stored password hash
-#             try:
-#                 return argon2_hasher.verify(stored_hash, password) #verify the password
-#             except VerifyMismatchError: #if password does not match
-#                 return False
-#         return False
-#     except sqlite3.Error as e:  # Handle SQLite errors
-#         handle_sqlite_error(e)
-#     finally:
-#         if conn:
-#             conn.close()
   
 def generate_challenge(username):
     """
@@ -306,10 +282,6 @@ def handle_registration(client_socket):
         client_socket.send("Invalid password! Please enter a stronger password.".encode())
         return
 
-    if get_public_key(username):
-        client_socket.send("Username already exists!".encode())
-        return
-
     # Generate OTP and send to client's email
     if not IS_BY_PASS_OTP:
         otp = generate_otp()
@@ -326,7 +298,6 @@ def handle_registration(client_socket):
         client_socket.send("Invalid OTP!".encode())
         return
     else:
-        print("OTP verified! at 215")
         error = add_user(username, email, password, public_key)
         if error:
             print(f"Error adding user: {error}")
@@ -391,12 +362,6 @@ def handle_login(client_socket):
             # Wait for password input from the client
             password = client_socket.recv(1024).decode()
             print(f"Received password for {username}")
-
-            # # Verify password using Argon2
-            # if verify_user(username, password):
-            #     client_socket.send("Login successful!".encode())
-            #     print(f"User {username} logged in successfully.")
-            #     return
             
             # Simplified Argon2 verification
             try:
