@@ -242,38 +242,51 @@ def login_client(client_socket, username, private_key):
     :param private_key: The user's private key for signing the challenge.
     :return: True if login is successful, False otherwise.
     """
-    client_socket.send("login".encode())
-    time.sleep(0.5)
+    login_attempts = 0  # Variable to store the number of login attempts
 
-    response = client_socket.recv(1024).decode()
-    if response != "login":
-        print(f"Server response: {response}")
-        return False
-      
-    client_socket.send(username.encode())
-    
-    challenge = client_socket.recv(1024).decode()
-    if "not registered" in challenge:
-        print(f"Error: {challenge}")
-        return False
-        
-    signed_challenge = signed_message(private_key, challenge)
-    client_socket.send(signed_challenge.encode())
-    signed_response = client_socket.recv(1024).decode()
-    if(signed_response != "valid signature!"):
-        print("Invalid signature!")
-        return False
-    
-    # TODO: display minimum requirement for password like minimum character, special character, number etc
-    #       if password is not secure enough ask user to change password
-    password = getpass.getpass("Enter your password: ")
-    try:
-        client_socket.send(password.encode())
+    while login_attempts < 3:  # Allow a maximum of 3 login attempts
+        client_socket.send("login".encode())
+        time.sleep(0.5)
+
         response = client_socket.recv(1024).decode()
-        print(f"Server response: {response}")
-        return "successful" in response
-    except Exception as e:
-        return False
+        if response != "login":
+            print(f"Server response: {response}")
+            return False
+        
+        client_socket.send(username.encode())
+        
+        challenge = client_socket.recv(1024).decode()
+        if "not registered" in challenge:
+            print(f"Error: {challenge}")
+            return False
+        elif "Too many login attempts" in challenge:
+            print(challenge)
+            return False
+            
+        signed_challenge = signed_message(private_key, challenge)
+        client_socket.send(signed_challenge.encode())
+        signed_response = client_socket.recv(1024).decode()
+        if(signed_response != "valid signature!"):
+            print("Invalid signature!")
+            return False
+        
+        # TODO: display minimum requirement for password like minimum character, special character, number etc
+        #       if password is not secure enough ask user to change password
+
+        password = getpass.getpass("Enter your password: ")
+        try:
+            client_socket.send(password.encode())
+            response = client_socket.recv(1024).decode()
+            print(f"Server response: {response}")
+            if "successful" in response:
+                return True  # Login successful
+            elif "Wrong password!" in response:
+                print("Remaining attempts: ", 3 - login_attempts)
+                login_attempts += 1  # Increment the number of login attempts
+        except Exception as e:
+            return False
+    print("Too many login attempts. Please try again later.")
+    return False
 
 def send_message(client_socket, private_key, username):
     """

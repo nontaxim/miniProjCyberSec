@@ -35,6 +35,7 @@ IS_BY_PASS_OTP = False
 client_otp = {}  # Store OTP for each client
 client_sockets = {}  # Store client sockets
 challenges = {}
+login_attempts = {}  # Store login attempts and last attempt time for each client
 
 def get_database_path():
     """Return the appropriate database path based on the APP_MODE."""
@@ -340,6 +341,24 @@ def handle_login(client_socket):
         # Receive username
         username = client_socket.recv(1024).decode()
         print(f"Login attempt from: {username}")
+        
+        # Check the number of login attempts
+        if username not in login_attempts:
+            login_attempts[username] = {"attempts": 0, "last_attempt_time": 0}
+
+        current_time = time.time()
+        attempts_info = login_attempts[username]
+
+        # Check if the user has exceeded the allowed number of attempts
+        if attempts_info["attempts"] >= 3:
+            time_since_last_attempt = current_time - attempts_info["last_attempt_time"]
+            if time_since_last_attempt < 300:  # 5 minutes (300 seconds)
+                remaining_time = int(300 - time_since_last_attempt)
+                client_socket.send(f"Too many login attempts. Please try again in {remaining_time} seconds.".encode())
+                return
+            else:
+                # Reset the attempt count after the waiting period
+                login_attempts[username] = {"attempts": 0, "last_attempt_time": 0}
 
         # Fetch stored user data from the database
         db_path = get_database_path()
@@ -400,6 +419,10 @@ def handle_login(client_socket):
             client_socket.send("Wrong password!".encode())
         else:
             client_socket.send("Client not registered!".encode())
+        
+        # Increment the count when login fails
+        login_attempts[username]["attempts"] += 1
+        login_attempts[username]["last_attempt_time"] = current_time
 
     except Exception as e:
         print(f"Error handling login: {e}")
