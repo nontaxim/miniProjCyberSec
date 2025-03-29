@@ -190,6 +190,16 @@ def validate_email(email):
     email_regex = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
     return re.match(email_regex, email) is not None
 
+def validate_username(username):
+    """
+    Validate the username to ensure it contains only alphanumeric characters and underscores.
+    
+    :param username: The username to validate.
+    :return: True if the username is valid, False otherwise.
+    """
+    username_regex = r'^[a-zA-Z0-9_]+$'
+    return re.match(username_regex, username) is not None
+
 def send_otp_email(email, otp, client_socket):
     """
         Send an OTP to the user's email address.
@@ -273,6 +283,11 @@ def handle_registration(client_socket):
     email = user_data['email']
     password = user_data['password']
     public_key = user_data['public_key']
+    
+    # Validate username
+    if not validate_username(username):
+        client_socket.send("Invalid username! Only alphanumeric characters and underscores are allowed.".encode())
+        return
     
     # Validate username
     if not username.strip():

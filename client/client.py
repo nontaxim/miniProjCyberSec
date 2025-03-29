@@ -154,6 +154,16 @@ def validate_email(email):
     email_regex = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
     return re.match(email_regex, email) is not None
 
+def validate_username(username):
+    """
+    Validate the username to ensure it contains only alphanumeric characters and underscores.
+    
+    :param username: The username to validate.
+    :return: True if the username is valid, False otherwise.
+    """
+    username_regex = r'^[a-zA-Z0-9_]+$'
+    return re.match(username_regex, username) is not None
+
 def register_client(client_socket, username):
     """
     Register a new client by generating keys and sending the public key to the server.
@@ -380,6 +390,11 @@ def main():
             print("Invalid option! Please choose again.")
             
     username = input("Enter your username: ")
+    
+    while not validate_username(username):
+        username = input("Invalid username format.\n"
+                        "A valid username can only contain letters, numbers, and underscores (_).\n"
+                        "Please enter a valid username: ")
     
     private_key = None
     if choice == '1':
