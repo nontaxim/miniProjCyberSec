@@ -20,7 +20,8 @@ def load_private_key(username):
     """
     private_key_path = f"{username}_private_key.pem"
     if not os.path.exists(private_key_path):
-        print(f"Error: {private_key_path} not found!")
+        # print(f"Error: {private_key_path} not found!")
+        print("Please Register User First.")
         return None
     
     with open(private_key_path, 'rb') as file:
