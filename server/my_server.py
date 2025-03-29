@@ -28,7 +28,7 @@ sender_password = os.environ.get("SENDER_PASSWORD")
 secret_key = os.environ.get("OTP_SECRET_KEY")
 salt = base64.b64decode(os.environ.get("SALT"))
 
-IS_BY_PASS_OTP = True
+IS_BY_PASS_OTP = False
 
 # Dictionaries to store client details, OTP, sockets, and challenges
 #clients = {}  # Store clients' details (username -> public_key)
