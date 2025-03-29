@@ -335,6 +335,7 @@ def handle_registration(client_socket):
         client_socket.send("Registration successful!".encode())
         print(f"Client {username} registered successfully.")
 
+    clients[username] = {"public_key": public_key}
     client_sockets[username] = client_socket
     print(f"Client {username} registered. Active clients: {list(client_sockets.keys())}")
 
@@ -495,10 +496,14 @@ def handle_message(client_socket):
             print(f"Invalid signature: {e}")
             client_socket.send("Invalid signature!".encode())
             return
-
         if to_client in client_sockets:
             recipient_socket = client_sockets[to_client]
             print(f"Forwarding message to {to_client}")
+            if recipient_socket.fileno() == -1:  # ReCheck if the socket is closed
+                print(f"Recipient {to_client}'s socket is closed.")
+                del client_sockets[to_client]  # Remove the closed socket
+                client_socket.send("Recipient not online!".encode())
+                return
             try:
                 sender_public_key = get_public_key(from_client)
                 recipient_socket.sendall(sender_public_key.encode())
@@ -518,35 +523,49 @@ def handle_message(client_socket):
 
 def handle_client(client_socket):
     """
-        Handle the communication with a connected client.
-        
-        :param client_socket: The socket object used to communicate with the client.
+    Handle the communication with a connected client.
     """
-    while True:
-        try:
-            data = client_socket.recv(1024).decode()
-            if not data:
-                break  # Client disconnected
-            print(f"Received data: {data}")
+    try:
+        while True:
+            try:
+                data = client_socket.recv(1024).decode()
+                if not data:
+                    print("Client disconnected.")
+                    break  # Client disconnected
+                
+                print(f"Received data: {data}")
 
-            if data == "register":
-                handle_registration(client_socket)
-            elif data == "login":
-                handle_login(client_socket)
-            elif data == "send_message":
-                print("Handling message...")
-                handle_message(client_socket)
-            elif data == "exit":
-                client_socket.send("Goodbye!".encode())
-                print("Client requested to exit.")
-                break  # Exit loop
-        except Exception as e:
-            print(f"Error handling client: {e}")
-            client_socket.send("Missing data".encode())
-            break  # Stop loop on error
-
-    client_socket.close()
-    print("Client disconnected.")
+                if data == "register":
+                    handle_registration(client_socket)
+                elif data == "login":
+                    handle_login(client_socket)
+                elif data == "send_message":
+                    print("Handling message...")
+                    handle_message(client_socket)
+                elif data == "exit":
+                    client_socket.send("Goodbye!".encode())
+                    print("Client requested to exit.")
+                    break  # Exit loop
+            except ConnectionResetError:
+                print("Client terminated the connection unexpectedly.")
+                break
+            except Exception as e:
+                print(f"Error handling client: {e}")
+                break  # Stop loop on error
+    finally:
+        # Clean up the client socket and remove from client_sockets
+        username_to_remove = None
+        for username, socket in client_sockets.items():
+            if socket == client_socket:
+                username_to_remove = username
+                break
+        if username_to_remove:
+            if username_to_remove in client_sockets:
+                del client_sockets[username_to_remove]
+                print(f"Cleaned up {username_to_remove} from active clients.")
+        client_socket.close()
+        # print("client_sockets",client_sockets)
+        print("Client socket Disconnected.")
 
 def start_server():
     """
