@@ -33,6 +33,13 @@ def generate_RSA_key(username):
     :param username: The username associated with the keys.
     :return: A tuple containing (private_key, public_key)
     """
+    private_key_path = f"{username}_private_key.pem"
+    public_key_path = f"{username}_public_key.pem"
+
+    if os.path.exists(private_key_path) and os.path.exists(public_key_path):
+        print(f"username: {username} already exist.")
+        return None, None
+
     private_key = rsa.generate_private_key(
         public_exponent=65537,
         key_size=2048,
@@ -41,7 +48,7 @@ def generate_RSA_key(username):
     public_key = private_key.public_key()
     
     # Save private key
-    with open(f"{username}_private_key.pem", "wb") as private_key_file:
+    with open(private_key_path, "wb") as private_key_file:
         private_key_file.write(private_key.private_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PrivateFormat.PKCS8,
@@ -49,7 +56,7 @@ def generate_RSA_key(username):
         ))
     
     # Save public key
-    with open(f"{username}_public_key.pem", "wb") as public_key_file:
+    with open(public_key_path, "wb") as public_key_file:
         public_key_file.write(public_key.public_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PublicFormat.SubjectPublicKeyInfo
@@ -155,13 +162,16 @@ def register_client(client_socket, username):
     :param username: The username to register.
     :return: Tuple (private_key, public_key) on success, None otherwise.
     """
+    private_key, public_key = generate_RSA_key(username)
+    if not private_key or not public_key:
+        return None, None
+    
     client_socket.send("register".encode())
     response = client_socket.recv(1024).decode()
     if response != "registration":
         print(f"Server response: {response}")
         client_socket.close()
         return None, None
-    private_key, public_key = generate_RSA_key(username)
     public_key_pem = public_key.public_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PublicFormat.SubjectPublicKeyInfo
@@ -187,13 +197,13 @@ def register_client(client_socket, username):
         client_socket.send(OTP_data.encode())  # Send OTP to server
     else:
         print(f"Unexpected server response: {response}")
-        return None
+        return None, None
     
     response = client_socket.recv(1024).decode()
     print(f"Server response: {response}")
     if "successful" not in response:
         print("Registration failed!")
-        return None
+        return None, None
     
     return private_key, public_key
 
@@ -372,7 +382,10 @@ def main():
     
     private_key = None
     if choice == '1':
-        private_key, _ = register_client(client_socket, username)
+        private_key, public_key = register_client(client_socket, username)
+        if not private_key or not public_key:
+            client_socket.close()
+            return
     elif choice == '2':
         private_key = load_private_key(username)
         if not private_key or not login_client(client_socket, username, private_key):
