@@ -12,3 +12,5 @@ htmlcov/
 *.coverage
 coverage.xml
 *.coveragerc
+
+e2e_tests/temp_keys

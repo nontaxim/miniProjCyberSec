@@ -5,18 +5,17 @@ import socket
 import os
 import signal
 import sqlite3
-import pytest
 
 @pytest.fixture(scope="session", autouse=True)
 def set_test_mode():
     """Set APP_MODE to 'test' for all tests."""
-    os.environ["APP_MODE"] = "test"
+    os.environ["APP_MODE"] = "e2e_test"
     print(f"APP_MODE set to: {os.environ['APP_MODE']}") 
     
 @pytest.fixture(scope="module", autouse=True)
 def reset_database():
     """Reset the database before each test module."""
-    db_path = "user_data.db"
+    db_path = os.path.join("e2e_tests", "test_user_data.db")  # ใช้ฐานข้อมูลสำหรับการทดสอบ
     if os.path.exists(db_path):
         print("Resetting database for module...")
         with sqlite3.connect(db_path) as conn:
@@ -27,7 +26,33 @@ def reset_database():
         print("Database reset completed for module.")
     else:
         print(f"Database file '{db_path}' does not exist. Skipping reset.")
-
+        
+@pytest.fixture(scope="session", autouse=True)
+def cleanup_database():
+    """Remove the test database file after all tests are completed."""
+    yield  # รอให้การทดสอบทั้งหมดเสร็จสิ้น
+    db_path = os.path.join("e2e_tests", "test_user_data.db")  # ใช้ฐานข้อมูลสำหรับการทดสอบ
+    if os.path.exists(db_path):
+        print(f"Removing database file '{db_path}'...")
+        os.remove(db_path)
+        print("Database file removed.")
+    else:
+        print(f"Database file '{db_path}' does not exist. No cleanup needed.")
+       
+        
+@pytest.fixture(scope="module", autouse=True)
+def cleanup_pem_files():
+    """Remove all .pem files in the temp_keys folder after the module is completed."""
+    yield
+    temp_keys_folder = os.path.join("e2e_tests", "temp_keys")
+    if os.path.exists(temp_keys_folder):
+        for file in os.listdir(temp_keys_folder):
+            if file.endswith(".pem"):
+                os.remove(os.path.join(temp_keys_folder, file))
+        print("Removed all .pem files in the temp_keys folder.")
+    else:
+        print(f"Directory '{temp_keys_folder}' does not exist. Skipping cleanup.")
+        
 @pytest.fixture(scope="function")
 def start_server():
     """Start the server in a subprocess for each test case."""
@@ -38,7 +63,7 @@ def start_server():
         stderr=None,  # Show stderr directly in the terminal
     )
     # Check if the server is ready
-    max_retries = 10  # Maximum number of retries
+    max_retries = 20  # Maximum number of retries
     retry_interval = 0.5  # Wait time between retries (seconds)
     for _ in range(max_retries):
         try:
@@ -54,10 +79,14 @@ def start_server():
         server_process.terminate()
         raise RuntimeError("Failed to start server")
 
-    yield 
-    print("Stopping server...")
-    os.kill(server_process.pid, signal.SIGTERM)
-    print("Server stopped.")
+    try:
+        yield server_process
+    finally:
+        print("Stopping server...")
+        server_process.terminate()
+        server_process.wait()
+        print("Server stopped.")
+    
 
 @pytest.fixture(scope="function")
 def client_socket():
@@ -73,5 +102,9 @@ def client_socket():
         yield client
     finally:
         print(f"Client{client_socket._client_count} disconnecting from server.🔌 ❌")
-        client.send("exit".encode())  # Notify server to close the connection
-        client.close()
+        try:
+            client.send("exit".encode())  # Notify server to close the connection
+        except BrokenPipeError:
+            print("BrokenPipeError: Unable to send 'exit' as the connection is already closed.")
+        finally:
+            client.close()
