@@ -10,44 +10,27 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 # ============================================
 # Pytest Test Cases for E2E Login
 # ============================================
-# Test Cases:
-# 1. Login After Register and Exit
-# Objective: Verify that a user can successfully register, exit the system, and log in again.
-# Steps:
-# - Register a new user.
-# - Choose Exit to leave the system.
-# - Log in with the same credentials.
-# - Verify that the login is successful.
 
-# 2. Login After Restart Server
-# Objective: Verify that a user can log in after restarting the server.
-# Steps:
-# Before the test:
-#   - Register a new user. (Can use testcase 1)
-# During the test:
-# - Restart the server. (For each test case, the server is started and stopped)
-# - Log in with the same credentials.
-# - Verify that the login is successful.
+# Test Case 1: Login After Register and Exit
+# Purpose: Ensure a user can register, exit the system, and log in again successfully.
 
-# 2. Failed Login with Incorrect Password
-# Objective: Verify that the system rejects login attempts with an incorrect password.
-# Steps:
-# - Register a new user.
-# - Attempt to log in with an incorrect password.
-# - Verify that the system displays "Invalid password!".
+# Test Case 2: Login After Restart Server
+# Purpose: Verify that a user can log in successfully after the server is restarted.
 
-# 3. Failed Login for Unregistered User
-# Objective: Verify that the system rejects login attempts for unregistered users.
-# Steps:
-# - Attempt to log in with a username that does not exist in the system.
-# - Verify that the system displays "Client not registered!".
+# Test Case 3: Failed Login with Incorrect Password
+# Purpose: Ensure the system rejects login attempts with an incorrect password.
 
-# 4. Failed Login with Invalid Digital Signature
-# Objective: Verify that the system rejects login attempts with an invalid digital signature.
-# Steps:
-# - Register a new user.
-# - Attempt to log in with an invalid digital signature.
-# - Verify that the system displays "Invalid digital signature!".
+# Test Case 4: Failed Login for Unregistered User
+# Purpose: Verify that the system rejects login attempts for users who are not registered.
+
+# Test Case 5: Failed Login with Invalid Digital Signature
+# Purpose: Ensure the system rejects login attempts with an invalid digital signature.
+
+# Test Case 6: Failed Login Due to Too Many Attempts
+# Purpose: Verify that the system blocks login attempts after exceeding the allowed number of failed attempts.
+
+# Test Case 7: Successful Login After Too Many Attempts
+# Purpose: Ensure a user can log in successfully after the cooldown period following too many failed attempts.
 
 pytestmark = [pytest.mark.login, pytest.mark.order(2)] 
 def test_login_after_register_and_exit(start_server, client_socket):
@@ -252,3 +235,146 @@ def test_login_fail_invalid_signature(start_server, client_socket):
     # Verify the server's response
     response = client_socket.recv(1024).decode()
     assert response == "Invalid signature!", "Expected 'Invalid digital signature!' error"
+    
+def test_login_fail_too_many_attempts(start_server, client_socket):
+    """Test login failure due to too many attempts."""
+    # Step 1: Register the user
+    client_socket.send("register".encode())
+    response = client_socket.recv(1024).decode()
+    assert response == "registration", "Server did not send 'registration' as expected"
+
+    username = "test_user5"
+    email = "test_user5@example.com"
+    password = "SecurePass123!"
+    public_key = generate_rsa_key_pair(username)
+
+    registration_data = {
+        "username": username,
+        "email": email,
+        "password": password,
+        "public_key": public_key,
+    }
+    client_socket.send(json.dumps(registration_data).encode())
+    response = client_socket.recv(1024).decode()
+    assert response == "Please enter OTP", "Server did not request OTP as expected"
+
+    otp = get_otp_from_email()
+    assert otp is not None, "OTP not found in email"
+    client_socket.send(otp.encode())
+    response = client_socket.recv(1024).decode()
+    assert response == "Registration successful!", "Registration failed unexpectedly"
+
+    # Step 2: Attempt to login with incorrect password 3 times
+    for attempt in range(3):
+        client_socket.send("login".encode())
+        response = client_socket.recv(1024).decode()
+        assert response == "login", "Server did not request to Login as expected"
+
+        client_socket.send(username.encode())
+        challenge = client_socket.recv(1024).decode()
+        private_key = load_private_key(username)
+        signed_challenge = signed_message(private_key, challenge)
+        client_socket.send(signed_challenge.encode())
+
+        signed_response = client_socket.recv(1024).decode()
+        assert signed_response == "valid signature!", "Invalid signature"
+
+        client_socket.send("wrongpassword".encode())
+        response = client_socket.recv(1024).decode()
+        assert response == "Wrong password!", f"Unexpected server response: {response}"
+
+    # Step 3: Verify too many attempts message
+    client_socket.send("login".encode())
+    response = client_socket.recv(1024).decode()
+    assert response == "login", "Server did not request to Login as expected"
+
+    client_socket.send(username.encode())
+    challenge = client_socket.recv(1024).decode()
+    print(challenge)
+    assert "Too many login attempts" in challenge, f"Unexpected server response: {challenge}"
+    
+
+def test_login_pass_after_too_many_attempts(start_server, client_socket):
+    """Test login success after too many attempts."""
+      # Step 1: Register the user
+    client_socket.send("register".encode())
+    response = client_socket.recv(1024).decode()
+    assert response == "registration", "Server did not send 'registration' as expected"
+
+    username = "test_user6"
+    email = "test_user6@example.com"
+    password = "SecurePass123!"
+    public_key = generate_rsa_key_pair(username)
+
+    registration_data = {
+        "username": username,
+        "email": email,
+        "password": password,
+        "public_key": public_key,
+    }
+    client_socket.send(json.dumps(registration_data).encode())
+    response = client_socket.recv(1024).decode()
+    assert response == "Please enter OTP", "Server did not request OTP as expected"
+
+    otp = get_otp_from_email()
+    assert otp is not None, "OTP not found in email"
+    client_socket.send(otp.encode())
+    response = client_socket.recv(1024).decode()
+    assert response == "Registration successful!", "Registration failed unexpectedly"
+
+    # Step 2: Attempt to login with incorrect password 3 times
+    for attempt in range(3):
+        client_socket.send("login".encode())
+        response = client_socket.recv(1024).decode()
+        assert response == "login", "Server did not request to Login as expected"
+
+        client_socket.send(username.encode())
+        challenge = client_socket.recv(1024).decode()
+        private_key = load_private_key(username)
+        signed_challenge = signed_message(private_key, challenge)
+        client_socket.send(signed_challenge.encode())
+
+        signed_response = client_socket.recv(1024).decode()
+        assert signed_response == "valid signature!", "Invalid signature"
+
+        client_socket.send("wrongpassword".encode())
+        response = client_socket.recv(1024).decode()
+        assert response == "Wrong password!", f"Unexpected server response: {response}"
+
+    # Step 3: Verify too many attempts message
+    client_socket.send("login".encode())
+    response = client_socket.recv(1024).decode()
+    assert response == "login", "Server did not request to Login as expected"
+
+    client_socket.send(username.encode())
+    challenge = client_socket.recv(1024).decode()
+    print(challenge)
+    assert "Too many login attempts" in challenge, f"Unexpected server response: {challenge}"
+    
+    # Step 4: Wait for cooldown period 
+    cooldown_time = int(challenge.split(" in")[1].split("seconds.")[0].strip())
+    print(f"Waiting for cooldown period of {cooldown_time} seconds...")
+    time.sleep(cooldown_time)
+    time.sleep(2)  # Additional wait to ensure the server is ready
+
+    # Step 5: Attempt to login with correct password after cooldown
+    
+    client_socket.send("login".encode())
+    response = client_socket.recv(1024).decode()
+    assert response == "login", "Server did not request to Login as expected"
+
+    # Send Username and Signature
+    client_socket.send(username.encode())
+    
+    challenge = client_socket.recv(1024).decode()
+    private_key = load_private_key(username)
+    signed_challenge = signed_message(private_key, challenge)
+    client_socket.send(signed_challenge.encode())
+    
+    signed_response = client_socket.recv(1024).decode()
+    assert signed_response == "valid signature!", "Invalid signature"
+
+    # Send Password
+    client_socket.send(password.encode())
+    response = client_socket.recv(1024).decode()
+    assert response == "Login successful!", "Login failed unexpectedly"

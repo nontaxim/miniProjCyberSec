@@ -27,6 +27,7 @@ sender_email = os.environ.get("SENDER_EMAIL")
 sender_password = os.environ.get("SENDER_PASSWORD")
 secret_key = os.environ.get("OTP_SECRET_KEY")
 salt = base64.b64decode(os.environ.get("SALT"))
+app_mode = os.environ.get("APP_MODE", "production").lower()
 
 IS_BY_PASS_OTP = False
 
@@ -35,10 +36,10 @@ IS_BY_PASS_OTP = False
 client_otp = {}  # Store OTP for each client
 client_sockets = {}  # Store client sockets
 challenges = {}
+login_attempts = {}  # Store login attempts and last attempt time for each client
 
 def get_database_path():
     """Return the appropriate database path based on the APP_MODE."""
-    app_mode = os.environ.get("APP_MODE", "production").lower()
     if app_mode == "e2e_test":
         return os.path.join("e2e_tests", "test_user_data.db")  # Testing Database
     return "user_data.db"  # Real Database
@@ -190,6 +191,16 @@ def validate_email(email):
     email_regex = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
     return re.match(email_regex, email) is not None
 
+def validate_username(username):
+    """
+    Validate the username to ensure it contains only alphanumeric characters and underscores.
+    
+    :param username: The username to validate.
+    :return: True if the username is valid, False otherwise.
+    """
+    username_regex = r'^[a-zA-Z0-9_]+$'
+    return re.match(username_regex, username) is not None
+
 def send_otp_email(email, otp, client_socket):
     """
         Send an OTP to the user's email address.
@@ -215,9 +226,6 @@ def send_otp_email(email, otp, client_socket):
     msg["To"] = email
 
     try:
-        # Check the mode from environment variable
-        app_mode = os.environ.get("APP_MODE", "production").lower()
-
         if app_mode == "e2e_test":
             print(f"------APP_MODE: {app_mode}-------")
             print(f"using localhost SMTP for testing in port 1025")
@@ -275,6 +283,11 @@ def handle_registration(client_socket):
     public_key = user_data['public_key']
     
     # Validate username
+    if not validate_username(username):
+        client_socket.send("Invalid username! Only alphanumeric characters and underscores are allowed.".encode())
+        return
+    
+    # Validate username
     if not username.strip():
         client_socket.send("Invalid username! Username cannot be empty.".encode())
         return
@@ -325,6 +338,29 @@ def handle_login(client_socket):
         # Receive username
         username = client_socket.recv(1024).decode()
         print(f"Login attempt from: {username}")
+        
+        # Check the number of login attempts
+        if username not in login_attempts:
+            login_attempts[username] = {"attempts": 0, "last_attempt_time": 0}
+
+        current_time = time.time()
+        attempts_info = login_attempts[username]
+        
+        if app_mode == "e2e_test":
+            cooldown_time = 5 # 5 seconds for testing
+        else:
+            cooldown_time = 300 # 5 minutes (300 seconds)
+
+        # Check if the user has exceeded the allowed number of attempts
+        if attempts_info["attempts"] >= 3:
+            time_since_last_attempt = current_time - attempts_info["last_attempt_time"]
+            if time_since_last_attempt < cooldown_time:  
+                remaining_time = int(cooldown_time - time_since_last_attempt)
+                client_socket.send(f"Too many login attempts. Please try again in {remaining_time} seconds.".encode())
+                return
+            else:
+                # Reset the attempt count after the waiting period
+                login_attempts[username] = {"attempts": 0, "last_attempt_time": 0}
 
         # Fetch stored user data from the database
         db_path = get_database_path()
@@ -385,6 +421,10 @@ def handle_login(client_socket):
             client_socket.send("Wrong password!".encode())
         else:
             client_socket.send("Client not registered!".encode())
+        
+        # Increment the count when login fails
+        login_attempts[username]["attempts"] += 1
+        login_attempts[username]["last_attempt_time"] = current_time
 
     except Exception as e:
         print(f"Error handling login: {e}")
