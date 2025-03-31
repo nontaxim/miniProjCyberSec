@@ -1,8 +1,8 @@
 import sqlite3
 import pytest
 import json
-from pytest_mock import MockerFixture
-from my_server import handle_registration, client_otp, clients
+from pytest_mock import MockerFixture, mocker
+from my_server import handle_registration, client_otp, add_user
 from typing import Generator
 
 # Fixture to mock socket for client communication with valid OTP
@@ -57,14 +57,6 @@ def setup_otp() -> None:
     """Pre-set OTP for test_user."""
     client_otp["test_user"] = "123456"
 
-# Fixture to clear the clients dictionary before and after test
-@pytest.fixture
-def clear_clients() -> Generator[None, None, None]:
-    """Ensure clients dictionary is reset before and after test."""
-    clients.clear()
-    yield
-    clients.clear()
-
 # Fixture to create an in-memory SQLite database
 @pytest.fixture
 def test_db(mocker: MockerFixture):
@@ -91,6 +83,7 @@ def test_db(mocker: MockerFixture):
 
     conn.close()  # Cleanup after the test
 
+
 # Test valid OTP registration
 def test_handle_registration_valid_otp(
     mock_socket_valid_otp: object,
@@ -111,10 +104,10 @@ def test_handle_registration_valid_otp(
     assert result is not None, "User test_user was not found in the database."
     assert result[0] == "test_user", "Username does not match expected value."
 
+
 # Test invalid OTP registration
-def test_handle_registration_invalid_otp(mock_socket_invalid_otp: None, mock_generate_otp: None, 
-                                          mock_send_email: None, setup_otp: None, 
-                                          clear_clients: None) -> None:
+def test_handle_registration_invalid_otp(mock_socket_invalid_otp: None, test_db: sqlite3.Connection, mock_generate_otp: None, 
+                                          mock_send_email: None, setup_otp: None) -> None:
     """Test user registration with invalid OTP."""
     
     # Call the registration function
@@ -123,7 +116,15 @@ def test_handle_registration_invalid_otp(mock_socket_invalid_otp: None, mock_gen
     # Assertions
     mock_send_email.assert_called_once()  # Check if email was sent
     mock_socket_invalid_otp.send.assert_called_with(b"Invalid OTP!")  # Check invalid OTP response
-    assert "test_user" not in clients  # Ensure user was not registered
+
+    # Validate the user does not exist in the database
+    cursor: sqlite3.Cursor = test_db.cursor()
+    cursor.execute("SELECT username FROM users WHERE username = ?", ("test_user",))
+    result: tuple[str] | None = cursor.fetchone()
+
+    # Assert the user does not exist in the database
+    assert result is None, "User test_user should not have been created in the database due to invalid OTP."
+
 
 # Test invalid username (empty username)
 def test_handle_registration_invalid_username(mock_socket_invalid_otp: object, mock_generate_otp: None,
@@ -145,7 +146,8 @@ def test_handle_registration_invalid_username(mock_socket_invalid_otp: object, m
     handle_registration(mock_socket_invalid_otp)
 
     # Check if the error message for invalid username was sent
-    mock_socket_invalid_otp.send.assert_called_with(b"Invalid username! Username cannot be empty.")
+    mock_socket_invalid_otp.send.assert_called_with(b"Invalid username! Only alphanumeric characters and underscores are allowed.")
+
 
 # Test invalid email format
 def test_handle_registration_invalid_email(mock_socket_invalid_otp: object, mock_generate_otp: None,
@@ -169,6 +171,7 @@ def test_handle_registration_invalid_email(mock_socket_invalid_otp: object, mock
     # Check if the error message for invalid email was sent
     mock_socket_invalid_otp.send.assert_called_with(b"Invalid email format!")
 
+
 # Test invalid password format
 def test_handle_registration_invalid_password(mock_socket_invalid_otp: object, mock_generate_otp: None,
                                               mock_send_email: None) -> None:
@@ -190,3 +193,20 @@ def test_handle_registration_invalid_password(mock_socket_invalid_otp: object, m
 
     # Check if the error message for invalid password was sent
     mock_socket_invalid_otp.send.assert_called_with(b"Invalid password! Please enter a stronger password.")
+
+
+def test_handle_registration_add_user_error(mock_socket_valid_otp: object, mock_generate_otp: None,
+                                              mock_send_email: None, mocker: MockerFixture) -> None:
+    """Test user registration with an error when adding the user to the database."""
+
+    # Mock the add_user function to simulate an error when adding the user
+    mocker.patch("my_server.add_user", return_value="A user with this email or username already exists.")
+
+    # Mock client_socket.send to capture the error message sent to the client
+    mock_send = mocker.patch.object(mock_socket_valid_otp, 'send')
+
+    # Call the registration function
+    handle_registration(mock_socket_valid_otp)
+
+    # Assert that 'send' was called with the error message at least once
+    mock_send.assert_any_call("A user with this email or username already exists.".encode())

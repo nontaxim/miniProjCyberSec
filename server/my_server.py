@@ -28,7 +28,7 @@ sender_password = os.environ.get("SENDER_PASSWORD")
 secret_key = os.environ.get("OTP_SECRET_KEY")
 salt = base64.b64decode(os.environ.get("SALT"))
 app_mode = os.environ.get("APP_MODE", "production").lower()
-
+UNIT_TESTING = os.getenv('UNIT_TESTING', 'False').strip().lower() in ['true', '1', 't', 'y', 'yes']
 IS_BY_PASS_OTP = False
 
 # Dictionaries to store client details, OTP, sockets, and challenges
@@ -52,7 +52,7 @@ def handle_sqlite_error(e):
     if isinstance(e, sqlite3.OperationalError):
         if "permission denied" in str(e).lower():
             print("Permission error: Check the database file permissions.")
-        elif "disk I/O error" in str(e).lower():
+        elif "disk i/o error" in str(e).lower():
             print("Disk I/O error: Check the disk space and I/O status.")
         else:
             print(f"Operational error: {e}")
@@ -89,7 +89,7 @@ def init_db():
     except sqlite3.Error as e: # Handle SQLite errors
         handle_sqlite_error(e)
     finally:
-        if conn:
+        if conn and not UNIT_TESTING:
             conn.close()
 
 # Initialize Argon2 hasher
@@ -133,7 +133,7 @@ def add_user(username, email, password, public_key):
         handle_sqlite_error(e)
         return "An unexpected error occurred."
     finally:
-        if conn:
+        if conn and not UNIT_TESTING:
             conn.close()
   
 def generate_challenge(username):
@@ -286,11 +286,6 @@ def handle_registration(client_socket):
     if not validate_username(username):
         client_socket.send("Invalid username! Only alphanumeric characters and underscores are allowed.".encode())
         return
-    
-    # Validate username
-    if not username.strip():
-        client_socket.send("Invalid username! Username cannot be empty.".encode())
-        return
 
     # Validate email
     if not validate_email(email):
@@ -357,6 +352,7 @@ def handle_login(client_socket):
             if time_since_last_attempt < cooldown_time:  
                 remaining_time = int(cooldown_time - time_since_last_attempt)
                 client_socket.send(f"Too many login attempts. Please try again in {remaining_time} seconds.".encode())
+                client_socket.close()
                 return
             else:
                 # Reset the attempt count after the waiting period
@@ -373,9 +369,8 @@ def handle_login(client_socket):
         except sqlite3.Error as e:  # Handle SQLite errors
             handle_sqlite_error(e)
         finally:
-            if conn:
+            if conn and not UNIT_TESTING:
                 conn.close()
-
         if result:
             stored_password, public_key_pem = result #get the stored password and public key
 
@@ -399,6 +394,9 @@ def handle_login(client_socket):
             except Exception as e:
                 print(f"Invalid signature: {e}")
                 client_socket.send("Invalid signature!".encode())
+                login_attempts[username]["attempts"] += 1
+                login_attempts[username]["last_attempt_time"] = current_time
+                client_socket.close()
                 return
 
             print(f"Challenge passed for {username}")
@@ -413,25 +411,26 @@ def handle_login(client_socket):
                     client_socket.send("Login successful!".encode())
                     client_sockets[username] = client_socket
                     print(f"User {username} logged in successfully.")
+                    print(f"Client {username} logged in. Active clients: {list(client_sockets.keys())}")
                     return
             except VerifyMismatchError:
                 pass  # Will send "Wrong password!" below
             except Exception as e:
                 print(f"Password verification error: {e}")
             client_socket.send("Wrong password!".encode())
+            # Increment the count when login fails
+            print(f"Login failed for {username}. Incrementing attempts.")
+            login_attempts[username]["attempts"] += 1
+            login_attempts[username]["last_attempt_time"] = current_time
         else:
             client_socket.send("Client not registered!".encode())
-        
-        # Increment the count when login fails
-        login_attempts[username]["attempts"] += 1
-        login_attempts[username]["last_attempt_time"] = current_time
-
+            client_socket.close()  # close the connection after sending the error
+            return
     except Exception as e:
         print(f"Error handling login: {e}")
         client_socket.send("An unexpected error occurred.".encode())
-
-    client_sockets[username] = client_socket
-    print(f"Client {username} logged in. Active clients: {list(client_sockets.keys())}")
+        client_socket.close()
+        return
 
 def get_public_key(username):
     """
@@ -454,7 +453,7 @@ def get_public_key(username):
         handle_sqlite_error(e)
         return None
     finally:
-        if conn:
+        if conn and not UNIT_TESTING:
             conn.close()
 
 def recv_all(client_socket, buffer_size=4096):

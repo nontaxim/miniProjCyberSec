@@ -108,3 +108,52 @@ def test_handle_client_invalid_data(mocker: MockerFixture):
     # Assert that client_socket.close was called
     mock_socket.close.assert_called_once()
 
+def test_handle_client_connection_reset_error(mocker: MockerFixture):
+    """Test that handle_client handles client termination unexpectedly (ConnectionResetError)."""
+    # Mock the client socket
+    mock_socket = mocker.Mock()
+
+    # Mock the 'recv' method to raise a ConnectionResetError (simulating client termination)
+    mock_socket.recv.side_effect = ConnectionResetError("Connection reset by peer")
+
+    # Mock the print function to capture the output
+    mock_print = mocker.patch("builtins.print")
+
+    # Call the function under test
+    handle_client(mock_socket)
+
+    # Assert that the print function was called with the expected message
+    mock_print.assert_any_call("Client terminated the connection unexpectedly.")
+
+    # Assert that client_socket.close was called
+    mock_socket.close.assert_called_once()
+
+def test_handle_client_remove_client_from_sockets(mocker: MockerFixture):
+    """Test that handle_client correctly removes the client from client_sockets."""
+    # Mock the client socket
+    mock_socket = mocker.Mock()
+
+    # Mock the 'recv' method to simulate a normal data receipt (e.g., a registration or login)
+    mock_socket.recv.side_effect = [
+        "register".encode(),  # Simulate receiving "register"
+        b""  # Simulate client disconnecting
+    ]
+
+    # Mock the client_sockets dictionary to simulate active clients
+    mock_client_sockets = {"client1": mock_socket}
+    mocker.patch("my_server.client_sockets", mock_client_sockets)
+
+    # Mock the print function to capture the output
+    mock_print = mocker.patch("builtins.print")
+
+    # Call the function under test
+    handle_client(mock_socket)
+
+    # Assert that the client is removed from client_sockets after disconnection
+    assert "client1" not in mock_client_sockets
+
+    # Assert that the cleanup message was printed
+    mock_print.assert_any_call("Cleaned up client1 from active clients.")
+
+    # Assert that client_socket.close was called
+    mock_socket.close.assert_called_once()
