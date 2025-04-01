@@ -29,3 +29,8 @@ def test_password_no_special_char() -> None:
 def test_valid_password() -> None:
     result: bool = validate_password("ValidPass123!")
     assert result is True, "Valid password should return True"
+
+# Test case when the password contains spaces
+def test_password_with_space() -> None:
+    result: bool = validate_password("Password with space1!")
+    assert result is False, "Password must not contain spaces."

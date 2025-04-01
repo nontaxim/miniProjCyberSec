@@ -105,3 +105,57 @@ def test_login_client_server_error(mocker):
 
     # Verify that the function returns False due to the unexpected server response
     assert result is False
+
+def test_login_client_too_many_attempts(mocker):
+    # Mock the client socket
+    mock_socket = mocker.MagicMock()
+
+    # Define the test data
+    username = "testuser"
+    private_key = mocker.MagicMock()
+
+    # Simulate the server response for too many login attempts
+    mock_socket.recv.side_effect = [
+        "login".encode(),  # First response: login challenge
+        "Too many login attempts".encode(),  # Server blocks login due to too many attempts
+    ]
+
+    # Call the function
+    result = login_client(mock_socket, username, private_key)
+
+    # Verify that the function returns False due to too many attempts
+    assert result is False
+
+
+def test_login_client_wrong_passwords(mocker):
+    # Mock the client socket
+    mock_socket = mocker.MagicMock()
+
+    # Define the test data
+    username = "testuser"
+    private_key = mocker.MagicMock()
+    expected_challenge = "challenge_string"
+
+    # Mock socket responses for wrong password attempts
+    mock_socket.recv.side_effect = [
+        "login".encode(),  # First response: login challenge
+        expected_challenge.encode(),  # Challenge from the server
+        "valid signature!".encode(),  # Valid signature response
+        "Wrong password!".encode(),  # First incorrect password
+        "Wrong password!".encode(),  # Second incorrect password
+        "Wrong password!".encode(),  # Third incorrect password
+        "Too many login attempts. Please try again later.".encode(),  # Final lockout message
+    ]
+    
+    # Mock the signed_message function to return a signed challenge
+    mock_signed_challenge = "signed_challenge_string"
+    mocker.patch("client.signed_message", return_value=mock_signed_challenge)
+
+    # Mock getpass to return an incorrect password three times
+    mocker.patch("getpass.getpass", side_effect=["wrongpass1", "wrongpass2", "wrongpass3"])
+
+    # Call the function
+    result = login_client(mock_socket, username, private_key)
+
+    # Verify that the function returns False after too many incorrect attempts
+    assert result is False
