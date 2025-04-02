@@ -244,7 +244,7 @@ def login_client(client_socket, username, private_key):
     """
     login_attempts = 0  # Variable to store the number of login attempts
 
-    while login_attempts < 3:  # Allow a maximum of 3 login attempts
+    while login_attempts <= 3:  # Allow a maximum of 3 login attempts
         client_socket.send("login".encode())
         time.sleep(0.5)
 
