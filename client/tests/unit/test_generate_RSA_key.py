@@ -2,7 +2,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.backends import default_backend
 from client import generate_RSA_key
 
-def test_generate_RSA_key(mocker):
+def test_generate_RSA_key_key_does_not_exist(mocker):
     username = "testuser"
 
     # Mock rsa.generate_private_key
@@ -53,3 +53,22 @@ def test_generate_RSA_key(mocker):
     handle = mock_open()
     handle.write.assert_any_call(b"mock_private_key_data")
     handle.write.assert_any_call(b"mock_public_key_data")
+
+def test_generate_RSA_key_key_exists(mocker):
+    username = "testuser"
+
+    # Mock print function to capture the output
+    mock_print = mocker.patch("builtins.print")
+
+    # Mock os.path.exists to return True (key pair already exists)
+    mocker.patch("os.path.exists", side_effect=lambda path: path.endswith("_private_key.pem") or path.endswith("_public_key.pem"))
+
+    # Call function again, this time it should print that the keys already exist
+    private_key, public_key = generate_RSA_key(username)
+
+    # Ensure the "already exists" message is printed
+    mock_print.assert_called_with(f"username: {username} already exists.")
+
+    # Ensure None, None is returned when keys already exist
+    assert private_key is None
+    assert public_key is None

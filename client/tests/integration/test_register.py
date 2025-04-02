@@ -55,7 +55,6 @@ def test_register_client_success(mocker):
     assert private_key == mock_private_key
     assert public_key == mock_public_key
 
-
 def test_register_client_invalid_username(mocker):
     # Mock socket
     mock_socket = mocker.MagicMock()
@@ -113,7 +112,6 @@ def test_register_client_invalid_username(mocker):
     assert private_key == mock_private_key
     assert public_key == mock_public_key
 
-
 def test_register_client_invalid_email(mocker):
     # Mock socket
     mock_socket = mocker.MagicMock()
@@ -163,7 +161,6 @@ def test_register_client_invalid_email(mocker):
     # Check the returned keys
     assert private_key == mock_private_key
     assert public_key == mock_public_key
-
 
 def test_register_client_invalid_password(mocker):
     # Mock socket
@@ -268,12 +265,11 @@ def test_register_client_unexpected_otp_request(mocker):
     result = register_client(mock_socket, "validuser")
 
     # Ensure the result is None if the OTP is unexpected
-    if result is not None:
+    if result != (None, None):
         pytest.fail(f"Expected None, but got {result}")
     else:
         # Assert the expected failure behavior
         print("Result is None as expected.")
-
 
 def test_register_client_registration_failure(mocker):
     # Mock socket
@@ -301,8 +297,29 @@ def test_register_client_registration_failure(mocker):
     result = register_client(mock_socket, "validuser")
 
     # Ensure the result is None if the OTP is unexpected
-    if result is not None:
+    if result != (None, None):
         pytest.fail(f"Expected None, but got {result}")
     else:
         # Assert the expected failure behavior
         print("Result is None as expected.")
+
+def test_register_client_key_generation_failure(mocker):
+    # Mock socket
+    mock_socket = mocker.MagicMock()
+
+    # Mock generate_RSA_key to return None for both keys
+    mock_generate_RSA_key = mocker.patch("client.generate_RSA_key", return_value=(None, None))
+
+    # Mock user input (valid username)
+    mocker.patch("builtins.input", side_effect=["validuser"])
+
+    # Call the function
+    private_key, public_key = register_client(mock_socket, "validuser")
+
+    # Assertions
+    # Ensure that generate_RSA_key was called with the correct username
+    mock_generate_RSA_key.assert_called_once_with("validuser")
+
+    # Assert that the function returns None, None when key generation fails
+    assert private_key is None
+    assert public_key is None

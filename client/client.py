@@ -176,6 +176,9 @@ def register_client(client_socket, username):
     :param username: The username to register.
     :return: Tuple (private_key, public_key) on success, None otherwise.
     """
+    while not username.strip():
+        username = input("Username cannot be empty.\nPlease enter your username: ")
+    
     private_key, public_key = generate_RSA_key(username)
     if not private_key or not public_key:
         return None, None
@@ -187,8 +190,6 @@ def register_client(client_socket, username):
         client_socket.close()
         return None, None
     
-    while not username.strip():
-        username = input("Username cannot be empty.\nPlease enter your username: ")
 
     public_key_pem = public_key.public_bytes(
         encoding=serialization.Encoding.PEM,
