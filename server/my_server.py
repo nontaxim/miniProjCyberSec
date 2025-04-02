@@ -394,8 +394,6 @@ def handle_login(client_socket):
             except Exception as e:
                 print(f"Invalid signature: {e}")
                 client_socket.send("Invalid signature!".encode())
-                login_attempts[username]["attempts"] += 1
-                login_attempts[username]["last_attempt_time"] = current_time
                 client_socket.close()
                 return
 
@@ -419,7 +417,6 @@ def handle_login(client_socket):
                 print(f"Password verification error: {e}")
             client_socket.send("Wrong password!".encode())
             # Increment the count when login fails
-            print(f"Login failed for {username}. Incrementing attempts.")
             login_attempts[username]["attempts"] += 1
             login_attempts[username]["last_attempt_time"] = current_time
         else:
