@@ -1,5 +1,6 @@
 import signal
 import os
+import re
 import json
 import pytest
 import socket
@@ -52,14 +53,20 @@ def get_otp_from_email():
     response = requests.get("http://localhost:8025/api/v2/messages")
     messages = response.json()["items"]
     for message in messages:
-        # Decode Base64 from the email body
+        # Extract the plain text body directly
         encoded_body = message["Content"]["Body"]
-        decoded_body = base64.b64decode(encoded_body).decode("utf-8")
         
-        # Search for OTP in the decoded message
-        if "Your OTP is:" in decoded_body:
-            otp = decoded_body.split(":")[1].strip()
-            return otp
+        # Decode the Base64-encoded body
+        try:
+            decoded_body = base64.b64decode(encoded_body).decode("utf-8")
+        except Exception as e:
+            print(f"Error decoding email body: {e}")
+            continue
+        
+        # Use regex to find OTP
+        match = re.search(r"Your OTP is:\s*(\d+)", decoded_body)
+        if match:
+            return match.group(1)  # Return the OTP
     return None
 
 def load_private_key(username):

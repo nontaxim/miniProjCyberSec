@@ -281,11 +281,11 @@ def login_client(client_socket, username, private_key):
             if "successful" in response:
                 return True  # Login successful
             elif "Wrong password!" in response:
-                print("Remaining attempts: ", 3 - login_attempts)
+                print("Remaining attempts: ", 2 - login_attempts)
                 login_attempts += 1  # Increment the number of login attempts
         except Exception as e:
             return False
-    print("Too many login attempts. Please try again later.")
+    print("Too many login attempts. Please try again in 5 minutes.")
     return False
 
 def send_message(client_socket, private_key, username):
