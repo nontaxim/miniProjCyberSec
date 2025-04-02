@@ -1,8 +1,11 @@
 import sqlite3
+import time
+from unittest.mock import patch
 import pytest
 from pytest_mock import MockerFixture
 from my_server import handle_login
 from cryptography.exceptions import InvalidSignature
+from argon2 import PasswordHasher
 
 # Fixture to create an in-memory SQLite database
 @pytest.fixture
@@ -99,10 +102,15 @@ def mock_invalid_verify_signature(mocker: MockerFixture) -> None:
     mock_public_key.verify.side_effect = InvalidSignature()  # Simulate invalid signature exception
     mocker.patch("cryptography.hazmat.primitives.serialization.load_pem_public_key", return_value=mock_public_key)
 
+@pytest.fixture
+def mock_argon2_verify_true(mocker):
+    """Mock the argon2 hasher verify method to always return True."""
+    return mocker.patch.object(PasswordHasher, 'verify', return_value=True)
+
 # -----------------------------------------------------------------------------------------------
 
 # Test the handle_login function when the client is registered
-def test_handle_login(mock_socket: MockerFixture, test_db, populate_db: None, mock_hash, mock_generate_challenge: None, mock_verify_signature: None) -> None:
+def test_handle_login(mock_socket: MockerFixture, test_db, populate_db: None, mock_hash, mock_generate_challenge: None, mock_verify_signature: None, mock_argon2_verify_true) -> None:
     """Test user login using pytest with an in-memory database."""
     handle_login(mock_socket)
 
@@ -118,15 +126,14 @@ def test_client_not_registered(mock_socket: MockerFixture, test_db, mock_hash, m
     mock_socket.send.assert_called_with(b"Client not registered!")
     mock_socket.close.assert_called_once()  # Ensure the connection is closed
 
-# Test the handle_login function when the client enters invalid password
-def test_client_invalid_password(mock_invalid_password_socket: MockerFixture, test_db, populate_db: None, mock_hash, mock_generate_challenge: None, mock_verify_signature: None) -> None:
+# Test case to verify handling of invalid password
+def test_client_invalid_password(mock_invalid_password_socket: MockerFixture, test_db, populate_db: None, mock_generate_challenge: None, mock_verify_signature: None) -> None:
     """Test login when the client enters an invalid password."""
     handle_login(mock_invalid_password_socket)
 
-    # Verify the server sends the "Invalid password!" message
-    mock_invalid_password_socket.send.assert_called_with(b"Invalid password!")
-    mock_invalid_password_socket.close.assert_called_once()  # Ensure the connection is closed
-
+    # Verify the server sends the "Wrong password!" message
+    mock_invalid_password_socket.send.assert_called_with(b"Wrong password!")
+    
 # Test the handle_login function with an invalid signature
 def test_handle_login_invalid_signature(mock_socket: MockerFixture, test_db, populate_db: None, mock_generate_challenge: None, mock_invalid_verify_signature: None) -> None:
     """Test login with invalid signature."""

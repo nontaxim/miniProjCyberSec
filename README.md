@@ -265,7 +265,7 @@ This project follows common Python naming conventions to ensure code readability
 - Purpose: Register the client with the server.
 - Responsibilities:
   - Send username, email, and public_key to the server for registration.
-  - Generate OTP and send it to the server for verification.
+  - Send OTP to the server for verification.
   - Once registration is complete, the client is able to send and receive messages.
 
 #### 5. Login Client (login_client()):

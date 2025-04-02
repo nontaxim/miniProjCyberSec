@@ -63,3 +63,36 @@ def test_send_otp_email_general_exception(mocker) -> None:
 
     # Ensure the general exception was handled and the client socket was closed
     mock_client_socket.close.assert_called_once()
+
+def test_send_otp_email_e2e_test_mode(mocker) -> None:
+    """
+    Test that the send_otp_email function sends an OTP using MailHog when app_mode is "e2e_test".
+    """
+    # Mock app_mode to be "e2e_test"
+    mocker.patch("my_server.app_mode", "e2e_test")
+
+    # Mock SMTP and its behavior for MailHog (localhost SMTP)
+    mock_smtp = mocker.patch("my_server.smtplib.SMTP")
+    mock_smtp_instance = mocker.MagicMock()
+    mock_smtp.return_value.__enter__.return_value = mock_smtp_instance
+
+    # Create a mock for the client socket
+    mock_client_socket = mocker.MagicMock()
+
+    # Mock print to capture printed output
+    mock_print = mocker.patch("builtins.print")
+
+    # Call the function
+    my_server.send_otp_email("test@example.com", "123456", mock_client_socket)
+
+    # Check that SMTP is called with localhost and port 1025
+    mock_smtp.assert_called_once_with("localhost", 1025)
+    mock_smtp_instance.sendmail.assert_called_once()
+
+    # Check that the print statements related to MailHog are called
+    mock_print.assert_any_call("------APP_MODE: e2e_test-------")
+    mock_print.assert_any_call("using localhost SMTP for testing in port 1025")
+    mock_print.assert_any_call("By Capturing the email using MailHog")
+
+    # Ensure the client socket was not closed in this case
+    mock_client_socket.close.assert_not_called()
