@@ -317,6 +317,7 @@ def handle_registration(client_socket):
         if error:
             print(f"Error adding user: {error}")
             client_socket.send(error.encode())
+            client_socket.close()
             return
         client_socket.send("Registration successful!".encode())
         print(f"Client {username} registered successfully.")
