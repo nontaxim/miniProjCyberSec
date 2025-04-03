@@ -168,6 +168,20 @@ def validate_username(username):
     username_regex = r'^[a-zA-Z0-9_]+$'
     return re.match(username_regex, username) is not None
 
+def cleanup_pem_files(username):
+    """
+    Remove .pem files for a specific user if registration fails.
+    
+    :param username: The username whose .pem files should be removed.
+    """
+    private_key_path = f"{username}_private_key.pem"
+    public_key_path = f"{username}_public_key.pem"
+    
+    if os.path.exists(private_key_path):
+        os.remove(private_key_path)
+    if os.path.exists(public_key_path):
+        os.remove(public_key_path)
+
 def register_client(client_socket, username):
     """
     Register a new client by generating keys and sending the public key to the server.
@@ -219,6 +233,7 @@ def register_client(client_socket, username):
     print(f"Server response: {response}")
     if "successful" not in response:
         print("Registration failed!")
+        cleanup_pem_files(username)
         return None, None
     
     return private_key, public_key
@@ -308,14 +323,15 @@ def send_message(client_socket, private_key, username):
     while not to_client.strip():
         to_client = input("recipient's username cannot be empty.\nPlease enter your recipient's username: ")
 
+    recipient_public_key = request_public_key(client_socket, to_client)
+    if not recipient_public_key or recipient_public_key == "Recipient not found!":
+        print(f"🔴 user '{to_client}' not found!")
+        return
+    
     message = input("Enter your message: ")
     while not message.strip():
         message = input("Message cannot be empty.\nPlease enter your message: ")
 
-    recipient_public_key = request_public_key(client_socket, to_client)
-    if not recipient_public_key or recipient_public_key == "Recipient not found!":
-        print("Failed to get recipient's public key.")
-        return
 
     encrypted_message = encrypt_message(recipient_public_key, message)
     signature = signed_message(private_key, encrypted_message)
@@ -326,13 +342,12 @@ def send_message(client_socket, private_key, username):
         'encrypted_message': encrypted_message,
         'signature': signature
     }
-    print(f"Sending message to {to_client}...")
     client_socket.sendall(json.dumps(message_data).encode())
     result = client_socket.recv(1024).decode()
     if result == "Recipient not online!":
-        print(f"{to_client} is not online.")
+        print(f"🔴 {to_client} is not online.")
     elif result == "Message forwarded!":
-        print(f"Message sent to {to_client} successfully.")
+        print(f"🟢 Successfully sent message to {to_client}................")
 
 def receive_messages(client_socket, private_key, stop_event):
     """
