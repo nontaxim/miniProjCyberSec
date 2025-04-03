@@ -328,6 +328,11 @@ def send_message(client_socket, private_key, username):
     }
     print(f"Sending message to {to_client}...")
     client_socket.sendall(json.dumps(message_data).encode())
+    result = client_socket.recv(1024).decode()
+    if result == "Recipient not online!":
+        print(f"{to_client} is not online.")
+    elif result == "Message forwarded!":
+        print(f"Message sent to {to_client} successfully.")
 
 def receive_messages(client_socket, private_key, stop_event):
     """
